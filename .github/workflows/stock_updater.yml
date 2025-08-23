@@ -1,0 +1,46 @@
+name: Auto Stock Price Updater
+
+on:
+  schedule:
+    # Chạy mỗi 1 phút
+    - cron: '* * * * *'
+  workflow_dispatch:  # Cho phép chạy thủ công
+  push:
+    branches: [ main ]
+
+jobs:
+  update-stock-prices:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Update Google Credentials
+      run: |
+        # Tạo file credentials từ biến môi trường
+        echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > google_credentials.json
+        
+    - name: Update stock prices
+      env:
+        GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+      run: |
+        python github_stock_updater.py
+        
+    - name: Commit and push changes (if any)
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add -A
+        git diff --quiet && git diff --staged --quiet || git commit -m "Auto update stock prices - $(date)"
+        git push

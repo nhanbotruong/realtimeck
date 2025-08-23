@@ -1,0 +1,1694 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trình theo dõi Cổ phiếu (Online)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Animation for fadeIn */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        
+        /* Responsive Layout: Card on mobile, Table on desktop */
+        @media (max-width: 1023px) {
+            .stock-table thead {
+                display: none; /* Hide table headers on mobile */
+            }
+            .stock-table .stock-item {
+                display: block; /* Each item is a block-level card */
+                border: 1px solid #e5e7eb;
+                border-radius: 0.75rem;
+                padding: 1rem;
+                margin-bottom: 1rem;
+                background-color: #fff;
+                box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            }
+            .stock-table .stock-cell {
+                display: flex;
+                justify-content: space-between;
+                padding: 0.5rem 0;
+                border-bottom: 1px solid #f3f4f6;
+            }
+            .stock-table .stock-cell:last-child {
+                border-bottom: none;
+            }
+            .stock-table .stock-cell::before {
+                content: attr(data-label); /* Use data-label for cell headers */
+                font-weight: 600;
+                padding-right: 1rem;
+                color: #4b5563;
+            }
+            .stock-table .actions-cell {
+                justify-content: flex-end; /* Align action buttons to the right */
+                gap: 1rem;
+            }
+        }
+
+        /* Loading Spinner */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 4px solid #3498db;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .customer-tag.active, .ticker-tag.active {
+            background-color: #2563eb;
+            color: white;
+        }
+        .delete-customer-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1rem;
+            height: 1rem;
+            border-radius: 50%;
+            margin-left: 0.25rem;
+            transition: background-color 0.2s;
+        }
+        .delete-customer-btn:hover {
+            background-color: rgba(0,0,0,0.1);
+        }
+        
+        /* Notification styles */
+        .notification {
+            animation: slideInRight 0.3s ease-out;
+        }
+        
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl">
+        
+        <header class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">Danh mục Cổ phiếu (Online)</h1>
+            <p class="text-gray-600 mt-2">Giá cổ phiếu sẽ chậm hơn 20p so với giá thực tế.</p>
+        </header>
+
+        <!-- Dashboard Tổng quan -->
+        <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm border border-gray-100 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg md:text-xl font-semibold text-gray-800 flex items-center gap-2">
+                    <svg class="h-5 w-5 md:h-6 md:w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    <span>Dashboard Tổng quan</span>
+                    <span class="bg-blue-100 text-blue-700 text-xs font-medium px-2 py-0.5 rounded-full" id="dashboard-count">0</span>
+                </h2>
+                <div class="flex items-center gap-2">
+                    <!-- Quick Actions -->
+                    <div class="flex items-center gap-1">
+                        <button id="quick-add-btn" class="bg-green-600 text-white font-medium py-2 px-3 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 shadow-sm transition-colors flex items-center gap-2 text-sm" title="Thêm nhanh">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                            </svg>
+                            <span class="hidden sm:inline">Thêm nhanh</span>
+                        </button>
+                        <button id="export-btn" class="bg-purple-600 text-white font-medium py-2 px-3 rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 shadow-sm transition-colors flex items-center gap-2 text-sm" title="Xuất dữ liệu">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <span class="hidden sm:inline">Xuất</span>
+                        </button>
+                        <button id="view-toggle-btn" class="bg-gray-600 text-white font-medium py-2 px-3 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 shadow-sm transition-colors flex items-center gap-2 text-sm" title="Chuyển đổi view">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                            </svg>
+                            <span class="hidden sm:inline">Grid</span>
+                        </button>
+                    </div>
+                    <button id="refresh-dashboard-btn" class="bg-blue-600 text-white font-medium py-2 px-3 md:px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-sm transition-colors flex items-center gap-2 text-sm">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M4 4l1.5 1.5A9 9 0 0120.5 15M20 20l-1.5-1.5A9 9 0 003.5 9"></path>
+                        </svg>
+                        <span class="hidden sm:inline">Refresh</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Thống kê Tổng quan -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
+                <div class="bg-white border border-gray-200 text-gray-800 p-3 md:p-4 rounded-lg shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs md:text-sm text-gray-600 font-medium">Tổng % Lãi/Lỗ</p>
+                            <p class="text-xl md:text-2xl font-bold" id="total-pnl-percent">0.00%</p>
+                        </div>
+                        <div class="w-8 h-8 md:w-10 md:h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <svg class="h-4 w-4 md:h-5 md:w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white border border-gray-200 text-gray-800 p-3 md:p-4 rounded-lg shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs md:text-sm text-gray-600 font-medium">Khách hàng Lãi</p>
+                            <p class="text-xl md:text-2xl font-bold text-green-600" id="profitable-customers">0</p>
+                            <p class="text-xs text-gray-500" id="profitable-percent">0%</p>
+                        </div>
+                        <div class="w-8 h-8 md:w-10 md:h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                            <svg class="h-4 w-4 md:h-5 md:w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white border border-gray-200 text-gray-800 p-3 md:p-4 rounded-lg shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs md:text-sm text-gray-600 font-medium">Khách hàng Lỗ</p>
+                            <p class="text-xl md:text-2xl font-bold text-red-600" id="losing-customers">0</p>
+                            <p class="text-xs text-gray-500" id="losing-percent">0%</p>
+                        </div>
+                        <div class="w-8 h-8 md:w-10 md:h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                            <svg class="h-4 w-4 md:h-5 md:w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white border border-gray-200 text-gray-800 p-3 md:p-4 rounded-lg shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs md:text-sm text-gray-600 font-medium">Tổng Mã CP</p>
+                            <p class="text-xl md:text-2xl font-bold" id="total-stocks">0</p>
+                            <p class="text-xs text-gray-500" id="total-customers">0 khách hàng</p>
+                        </div>
+                        <div class="w-8 h-8 md:w-10 md:h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <svg class="h-4 w-4 md:h-5 md:w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Biểu đồ và Thống kê -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+                <!-- Biểu đồ Hiệu suất Khách hàng -->
+                <div class="bg-white border border-gray-200 p-4 md:p-6 rounded-lg shadow-sm">
+                    <h3 class="text-base md:text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <svg class="h-4 w-4 md:h-5 md:w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        Hiệu suất theo Khách hàng
+                    </h3>
+                    <div class="h-48 md:h-64 flex items-end justify-center gap-2 md:gap-3" id="customer-performance-chart">
+                        <!-- Chart sẽ được render bằng JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Top Khách hàng -->
+                <div class="bg-white border border-gray-200 p-4 md:p-6 rounded-lg shadow-sm">
+                    <h3 class="text-base md:text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <svg class="h-4 w-4 md:h-5 md:w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                        </svg>
+                        Top Khách hàng
+                    </h3>
+                    <div id="top-customers-list" class="space-y-2 md:space-y-3">
+                        <!-- Danh sách sẽ được render bằng JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Thời gian cập nhật -->
+            <div class="mt-4 md:mt-6 flex items-center justify-center">
+                <div class="bg-blue-50 text-blue-700 px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium flex items-center gap-2">
+                    <svg class="h-3 w-3 md:h-4 md:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>Cập nhật lần cuối: </span>
+                    <span id="last-update-time" class="font-semibold">Chưa có dữ liệu</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form to add new stock -->
+        <div class="bg-white p-6 rounded-xl shadow-md mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Thêm Cổ phiếu Mới</span>
+            </h2>
+            <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-blue-700">
+                            <strong>Tính năng tự động:</strong> Nhập <strong>Giá Mua</strong> và <strong>Giá Cắt Lỗ</strong>, hệ thống sẽ tự động tính <strong>Tỷ lệ R/R</strong> và <strong>Giá Chốt Lời</strong> với tỷ lệ mặc định 2.5:1
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <form id="stock-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-8 gap-4 items-end">
+                 <div>
+                    <label for="customer-id" class="block text-sm font-medium text-gray-700 mb-1 h-10">Mã KH <br><span class="text-xs text-gray-500 font-normal">(Bắt buộc)</span></label>
+                    <input type="text" id="customer-id" placeholder="VD: KH01" required class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="ticker" class="block text-sm font-medium text-gray-700 mb-1 h-10">Mã CP <br><span class="text-xs text-gray-500 font-normal">(Bắt buộc)</span></label>
+                    <input type="text" id="ticker" placeholder="VD: HPG" required class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="buy-price" class="block text-sm font-medium text-gray-700 mb-1 h-10">Giá Mua <br><span class="text-xs text-gray-500 font-normal">(Bắt buộc)</span></label>
+                    <input type="text" id="buy-price" placeholder="28,500" required class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="stop-loss" class="block text-sm font-medium text-gray-700 mb-1 h-10">Giá Cắt Lỗ <br><span class="text-xs text-gray-500 font-normal">(Tùy chọn)</span></label>
+                    <input type="text" id="stop-loss" placeholder="25,000" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                 <div>
+                    <label for="rr-ratio" class="block text-sm font-medium text-gray-700 mb-1 h-10">Tỷ lệ R/R <br><span class="text-xs text-gray-500 font-normal">(Tự động tính)</span></label>
+                    <input type="text" id="rr-ratio" placeholder="2,5" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="target-price" class="block text-sm font-medium text-gray-700 mb-1 h-10">Giá Chốt Lời <br><span class="text-xs text-gray-500 font-normal">(Tự động tính)</span></label>
+                    <input type="text" id="target-price" placeholder="35,000" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                 <div>
+                    <label for="market-price" class="block text-sm font-medium text-gray-700 mb-1 h-10">Giá TT <br><span class="text-xs text-gray-500 font-normal">(Tùy chọn)</span></label>
+                    <input type="text" id="market-price" placeholder="29,500" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="flex gap-2">
+                    <button type="submit" id="add-btn" class="flex-1 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-sm transition-colors">
+                        Thêm
+                    </button>
+                    <button type="button" id="reset-calc-btn" class="px-4 py-2 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 shadow-sm transition-colors" title="Reset tính toán">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M4 4l1.5 1.5A9 9 0 0120.5 15M20 20l-1.5-1.5A9 9 0 003.5 9"></path>
+                        </svg>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Filters -->
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+            <!-- Customer Tags -->
+            <div class="flex-grow">
+                <h3 class="text-lg font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span>Lọc nhanh theo khách hàng</span>
+                </h3>
+                <div id="customer-tags-container" class="flex flex-wrap gap-2">
+                    <!-- Tags will be dynamically inserted here -->
+                </div>
+            </div>
+            <!-- Refresh Button -->
+            <div class="flex-shrink-0">
+                 <button id="refresh-prices-btn" class="w-full md:w-auto bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-sm transition-colors flex items-center justify-center gap-2">
+                    <svg id="refresh-icon" class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M4 4l1.5 1.5A9 9 0 0120.5 15M20 20l-1.5-1.5A9 9 0 003.5 9"></path></svg>
+                    <span id="refresh-btn-text">Làm mới giá</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Stock Ticker Tags -->
+        <div class="mb-4">
+            <h3 class="text-lg font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" />
+                </svg>
+                <span>Lọc nhanh theo mã cổ phiếu</span>
+            </h3>
+            <div id="ticker-tags-container" class="flex flex-wrap gap-2">
+                <!-- Ticker tags will be dynamically inserted here -->
+            </div>
+        </div>
+
+
+        <!-- Search/Filter Input -->
+        <div class="mb-4">
+            <input type="text" id="search-customer" placeholder="Hoặc tìm kiếm theo Mã Khách hàng / Mã Cổ phiếu..." class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <!-- Stock list table / card container -->
+        <div class="bg-white rounded-xl shadow-md overflow-hidden">
+             <table class="stock-table w-full text-sm text-left text-gray-600">
+                <thead class="text-xs text-gray-700 uppercase bg-gray-50 lg:table-header-group">
+                    <tr>
+                        <th scope="col" class="px-6 py-3">Mã KH</th>
+                        <th scope="col" class="px-6 py-3">Mã CP</th>
+                        <th scope="col" class="px-6 py-3">
+                            <button id="sort-date-btn" class="flex items-center gap-1 group">
+                                <span>Ngày giờ thêm</span>
+                                <svg class="h-4 w-4 text-gray-400 group-hover:text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path></svg>
+                            </button>
+                        </th>
+                        <th scope="col" class="px-6 py-3">
+                            <button id="sort-buy-price-btn" class="flex items-center gap-1 group">
+                                <span>Giá Mua</span>
+                                <svg class="h-4 w-4 text-gray-400 group-hover:text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path></svg>
+                            </button>
+                        </th>
+                        <th scope="col" class="px-6 py-3">Giá TT</th>
+                        <th scope="col" class="px-6 py-3">
+                            <button id="sort-pnl-btn" class="flex items-center gap-1 group">
+                                <span>Lãi/Lỗ</span>
+                                <svg class="h-4 w-4 text-gray-400 group-hover:text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path></svg>
+                            </button>
+                        </th>
+                        <th scope="col" class="px-6 py-3">Giá Chốt Lời</th>
+                        <th scope="col" class="px-6 py-3">Giá Cắt Lỗ</th>
+                        <th scope="col" class="px-6 py-3">
+                            <button id="sort-rr-btn" class="flex items-center gap-1 group">
+                                <span>R/R</span>
+                                <svg class="h-4 w-4 text-gray-400 group-hover:text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path></svg>
+                            </button>
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-center">Hành động</th>
+                    </tr>
+                </thead>
+                <tbody id="stock-list-body">
+                    <!-- Initial Loading State -->
+                    <tr>
+                        <td colspan="9" class="text-center p-8">
+                            <div class="flex flex-col items-center justify-center">
+                                <div class="loader"></div>
+                                <p class="mt-4 text-gray-500">Đang tải dữ liệu danh mục...</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <div id="empty-state" class="text-center py-12 px-6 hidden">
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2z" /></svg>
+                <h3 id="empty-state-title" class="mt-2 text-sm font-medium text-gray-900">Chưa có cổ phiếu</h3>
+                <p id="empty-state-message" class="mt-1 text-sm text-gray-500">Hãy bắt đầu bằng cách thêm một cổ phiếu mới.</p>
+            </div>
+        </div>
+        
+        <footer class="text-center mt-8 text-sm text-gray-500">
+            <p>Tạo bởi Nhân Trương &copy; 2025</p>
+        </footer>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="edit-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-xl bg-white">
+            <div class="mt-3 text-center">
+                <h3 class="text-2xl leading-6 font-bold text-gray-900 mb-4">Chỉnh sửa thông tin</h3>
+                <form id="edit-form">
+                    <input type="hidden" id="edit-id">
+                    <div class="grid grid-cols-2 gap-4 text-left">
+                        <div class="col-span-2">
+                            <label for="edit-customer-id" class="block text-sm font-medium text-gray-700 mb-1">Mã KH</label>
+                            <input type="text" id="edit-customer-id" required class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="col-span-2">
+                            <label for="edit-ticker" class="block text-sm font-medium text-gray-700 mb-1">Mã CP</label>
+                            <input type="text" id="edit-ticker" required class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label for="edit-buy-price" class="block text-sm font-medium text-gray-700 mb-1">Giá Mua</label>
+                            <input type="text" id="edit-buy-price" required class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label for="edit-market-price" class="block text-sm font-medium text-gray-700 mb-1">Giá TT</label>
+                            <input type="text" id="edit-market-price" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                         <div>
+                            <label for="edit-stop-loss" class="block text-sm font-medium text-gray-700 mb-1">Giá Cắt Lỗ</label>
+                            <input type="text" id="edit-stop-loss" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label for="edit-rr-ratio" class="block text-sm font-medium text-gray-700 mb-1">Tỷ lệ R/R</label>
+                            <input type="text" id="edit-rr-ratio" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="col-span-2">
+                            <label for="edit-target-price" class="block text-sm font-medium text-gray-700 mb-1">Giá Chốt Lời</label>
+                            <input type="text" id="edit-target-price" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                    <div class="items-center px-4 py-3 mt-6 flex justify-end gap-3 bg-gray-50 -mx-5 -mb-5 rounded-b-xl">
+                        <button id="cancel-edit" type="button" class="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400">
+                            Hủy
+                        </button>
+                        <button id="save-edit-btn" type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 font-semibold">
+                            Lưu thay đổi
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Delete Modal -->
+    <div id="confirm-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-xl bg-white">
+            <div class="mt-3 text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                    <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                </div>
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mt-4" id="confirm-title">Xóa khách hàng?</h3>
+                <div class="mt-2 px-7 py-3">
+                    <p class="text-sm text-gray-500" id="confirm-message">Bạn có chắc chắn muốn xóa tất cả dữ liệu của khách hàng này không? Hành động này không thể hoàn tác.</p>
+                </div>
+                <div class="items-center px-4 py-3 mt-4 flex justify-center gap-3">
+                    <button id="cancel-confirm-btn" class="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400">
+                        Hủy
+                    </button>
+                    <button id="confirm-delete-btn" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 font-semibold">
+                        Xác nhận Xóa
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Configuration ---
+            const SHEETDB_API_URLS = [
+                'https://sheetdb.io/api/v1/2y27zybned5p0', //truongtrongnhan2912
+                'https://sheetdb.io/api/v1/01ii57rok66mx', //nhanbo29122001
+                'https://sheetdb.io/api/v1/zmt939jd070o9', //designercarry
+                'https://sheetdb.io/api/v1/vairf104jw9uq', //nhanbo116
+                'https://sheetdb.io/api/v1/xtww6ds2bqm68', //nhanbotruong
+            ];
+            let currentApiIndex = 0;
+            
+            // --- DOM Elements ---
+            const stockForm = document.getElementById('stock-form');
+            const addBtn = document.getElementById('add-btn');
+            const stockListBody = document.getElementById('stock-list-body');
+            const emptyState = document.getElementById('empty-state');
+            const searchInput = document.getElementById('search-customer');
+            const editModal = document.getElementById('edit-modal');
+            const editForm = document.getElementById('edit-form');
+            const cancelEditBtn = document.getElementById('cancel-edit');
+            const saveEditBtn = document.getElementById('save-edit-btn');
+            const tagsContainer = document.getElementById('customer-tags-container');
+            const tickerTagsContainer = document.getElementById('ticker-tags-container');
+            const refreshBtn = document.getElementById('refresh-prices-btn');
+            const sortDateBtn = document.getElementById('sort-date-btn');
+            const confirmModal = document.getElementById('confirm-modal');
+            const confirmMessage = document.getElementById('confirm-message');
+            const cancelConfirmBtn = document.getElementById('cancel-confirm-btn');
+            const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+            const resetCalcBtn = document.getElementById('reset-calc-btn');
+            const sortBuyPriceBtn = document.getElementById('sort-buy-price-btn');
+            const sortPnlBtn = document.getElementById('sort-pnl-btn');
+            const sortRrBtn = document.getElementById('sort-rr-btn');
+            const refreshDashboardBtn = document.getElementById('refresh-dashboard-btn');
+            const lastUpdateTime = document.getElementById('last-update-time');
+
+            // --- State ---
+            let stocks = [];
+            let selectedCustomer = '';
+            let selectedTicker = '';
+            let dateSortDirection = 'desc'; // 'asc' or 'desc'
+            let newlyAdded = { customers: {}, tickers: {} };
+            let onConfirmCallback = null;
+            let currentSortBy = 'date';
+            let currentSortDirection = 'desc';
+
+            // --- Functions ---
+            const parsePrice = (value) => parseFloat(value.toString().replace(',', '.')) || 0;
+
+            // Cache cho các tính toán phức tạp
+            const calculationCache = new Map();
+
+            const calculateStockMetrics = (stock) => {
+                const cacheKey = `${stock.id}-${stock.buyPrice}-${stock.marketPrice}-${stock.targetPrice}-${stock.stopLoss}`;
+                
+                if (calculationCache.has(cacheKey)) {
+                    return calculationCache.get(cacheKey);
+                }
+                
+                const marketPrice = parsePrice(stock.marketPrice);
+                const buyPrice = parsePrice(stock.buyPrice);
+                const targetPrice = parsePrice(stock.targetPrice);
+                const stopLoss = parsePrice(stock.stopLoss);
+                
+                const metrics = {
+                    pnl: marketPrice > 0 && buyPrice > 0 ? ((marketPrice - buyPrice) / buyPrice) * 100 : 0,
+                    rrRatio: 0,
+                    risk: buyPrice - stopLoss,
+                    reward: targetPrice - buyPrice
+                };
+                
+                if (metrics.risk > 0 && metrics.reward > 0) {
+                    metrics.rrRatio = metrics.reward / metrics.risk;
+                }
+                
+                calculationCache.set(cacheKey, metrics);
+                return metrics;
+            };
+
+            // Auto-save draft functions
+            const autoSaveDraft = () => {
+                const formData = {
+                    customerId: document.getElementById('customer-id').value,
+                    ticker: document.getElementById('ticker').value,
+                    buyPrice: document.getElementById('buy-price').value,
+                    stopLoss: document.getElementById('stop-loss').value,
+                    rrRatio: document.getElementById('rr-ratio').value,
+                    targetPrice: document.getElementById('target-price').value,
+                    marketPrice: document.getElementById('market-price').value,
+                    timestamp: Date.now()
+                };
+                
+                localStorage.setItem('stockFormDraft', JSON.stringify(formData));
+            };
+
+            const restoreDraft = () => {
+                const draft = JSON.parse(localStorage.getItem('stockFormDraft') || '{}');
+                if (draft.customerId && draft.timestamp && (Date.now() - draft.timestamp) < 24 * 60 * 60 * 1000) {
+                    document.getElementById('customer-id').value = draft.customerId || '';
+                    document.getElementById('ticker').value = draft.ticker || '';
+                    document.getElementById('buy-price').value = draft.buyPrice || '';
+                    document.getElementById('stop-loss').value = draft.stopLoss || '';
+                    document.getElementById('rr-ratio').value = draft.rrRatio || '';
+                    document.getElementById('target-price').value = draft.targetPrice || '';
+                    document.getElementById('market-price').value = draft.marketPrice || '';
+                    
+                    // Show draft restored notification
+                    showNotification('Đã khôi phục dữ liệu nháp từ phiên làm việc trước', 'info');
+                }
+            };
+
+            const clearDraft = () => {
+                localStorage.removeItem('stockFormDraft');
+            };
+
+            const showNotification = (message, type = 'info') => {
+                const notification = document.createElement('div');
+                notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 notification ${
+                    type === 'info' ? 'bg-blue-500 text-white' :
+                    type === 'success' ? 'bg-green-500 text-white' :
+                    type === 'error' ? 'bg-red-500 text-white' : 'bg-gray-500 text-white'
+                }`;
+                notification.textContent = message;
+                
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.style.transform = 'translateX(100%)';
+                    notification.style.opacity = '0';
+                    setTimeout(() => notification.remove(), 300);
+                }, 3000);
+            };
+
+            const fetchWithApiRotation = async (path = '', options = {}) => {
+                const baseUrl = SHEETDB_API_URLS[currentApiIndex];
+                const url = `${baseUrl}${path}`;
+                try {
+                    const response = await fetch(url, options);
+                    if (response.status === 402) {
+                        console.warn(`API key ${currentApiIndex} has reached its limit. Switching...`);
+                        currentApiIndex++;
+                        if (currentApiIndex >= SHEETDB_API_URLS.length) {
+                            throw new Error("Tất cả các API key đã hết lượt sử dụng.");
+                        }
+                        return fetchWithApiRotation(path, options);
+                    }
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        const errorMessage = errorData.error || `HTTP error! status: ${response.status}`;
+                        if (errorMessage.toLowerCase().includes('limit') || errorMessage.toLowerCase().includes('quota')) {
+                            console.warn(`API key ${currentApiIndex} may have reached its limit (message). Switching...`);
+                            currentApiIndex++;
+                            if (currentApiIndex >= SHEETDB_API_URLS.length) {
+                                throw new Error("Tất cả các API key đã hết lượt sử dụng.");
+                            }
+                            return fetchWithApiRotation(path, options);
+                        }
+                        throw new Error(errorMessage);
+                    }
+                    return response;
+                } catch (error) {
+                    console.error("API Fetch Error:", error);
+                    throw error;
+                }
+            };
+
+            const loadAndCleanNewlyAdded = () => {
+                const storedData = JSON.parse(localStorage.getItem('newlyAdded')) || { customers: {}, tickers: {} };
+                const now = Date.now();
+                const oneDay = 24 * 60 * 60 * 1000;
+                
+                Object.keys(storedData.customers).forEach(key => {
+                    if (now - storedData.customers[key] > oneDay) {
+                        delete storedData.customers[key];
+                    }
+                });
+                Object.keys(storedData.tickers).forEach(key => {
+                    if (now - storedData.tickers[key] > oneDay) {
+                        delete storedData.tickers[key];
+                    }
+                });
+                
+                localStorage.setItem('newlyAdded', JSON.stringify(storedData));
+                newlyAdded = storedData;
+            };
+
+            const parseVietnameseDate = (dateString) => {
+                if (!dateString) return new Date(0);
+                const parts = dateString.match(/(\d{2}):(\d{2}):(\d{2}) (\d{1,2})\/(\d{1,2})\/(\d{2})/);
+                if (!parts) return new Date(0);
+                return new Date(`20${parts[6]}`, parts[5] - 1, parts[4], parts[1], parts[2], parts[3]);
+            };
+
+            const renderCustomerTags = () => {
+                const customerIds = [...new Set(stocks.map(stock => stock.customerId.toUpperCase()))].sort();
+                tagsContainer.innerHTML = '';
+                const allTag = document.createElement('button');
+                allTag.className = 'customer-tag px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-300 transition-colors';
+                allTag.textContent = 'Tất cả KH';
+                allTag.dataset.customerId = '';
+                tagsContainer.appendChild(allTag);
+                customerIds.forEach(id => {
+                    const tag = document.createElement('button');
+                    tag.className = 'customer-tag px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-300 transition-colors flex items-center gap-1';
+                    tag.dataset.customerId = id;
+                    
+                    const text = document.createElement('span');
+                    text.textContent = id;
+                    tag.appendChild(text);
+
+                    if(newlyAdded.customers[id]) {
+                        const newBadge = document.createElement('span');
+                        newBadge.className = 'text-xs font-semibold text-white bg-green-500 px-1.5 py-0.5 rounded-full';
+                        newBadge.textContent = 'Mới';
+                        tag.appendChild(newBadge);
+                    }
+                    
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'delete-customer-btn';
+                    deleteBtn.dataset.deleteCustomer = id;
+                    deleteBtn.innerHTML = `<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>`;
+                    tag.appendChild(deleteBtn);
+
+                    tagsContainer.appendChild(tag);
+                });
+            };
+
+            const renderTickerTags = () => {
+                const tickers = [...new Set(stocks.map(stock => stock.ticker.toUpperCase()))].sort();
+                tickerTagsContainer.innerHTML = '';
+                 const allTag = document.createElement('button');
+                allTag.className = 'ticker-tag px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-300 transition-colors';
+                allTag.textContent = 'Tất cả CP';
+                allTag.dataset.ticker = '';
+                tickerTagsContainer.appendChild(allTag);
+                tickers.forEach(id => {
+                    const tag = document.createElement('button');
+                    tag.className = 'ticker-tag px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-300 transition-colors flex items-center gap-1';
+                    tag.dataset.ticker = id;
+
+                    const text = document.createElement('span');
+                    text.textContent = id;
+                    tag.appendChild(text);
+
+                    if(newlyAdded.tickers[id]) {
+                        const newBadge = document.createElement('span');
+                        newBadge.className = 'text-xs font-semibold text-white bg-green-500 px-1.5 py-0.5 rounded-full';
+                        newBadge.textContent = 'Mới';
+                        tag.appendChild(newBadge);
+                    }
+                    tickerTagsContainer.appendChild(tag);
+                });
+            };
+            
+            const updateActiveTags = () => {
+                document.querySelectorAll('.customer-tag').forEach(tag => {
+                    tag.classList.toggle('active', tag.dataset.customerId.toUpperCase() === selectedCustomer);
+                });
+                document.querySelectorAll('.ticker-tag').forEach(tag => {
+                    tag.classList.toggle('active', tag.dataset.ticker.toUpperCase() === selectedTicker);
+                });
+            };
+
+            const renderStockList = () => {
+                stockListBody.innerHTML = '';
+
+                let filteredStocks = [...stocks];
+
+                // 1. Advanced Sort
+                filteredStocks.sort((a, b) => {
+                    let comparison = 0;
+                    
+                    switch(currentSortBy) {
+                        case 'date':
+                            const dateA = parseVietnameseDate(a.dateAdded);
+                            const dateB = parseVietnameseDate(b.dateAdded);
+                            comparison = dateA - dateB;
+                            break;
+                        case 'buyPrice':
+                            const buyPriceA = parsePrice(a.buyPrice);
+                            const buyPriceB = parsePrice(b.buyPrice);
+                            comparison = buyPriceA - buyPriceB;
+                            break;
+                        case 'pnl':
+                            const pnlA = calculateStockMetrics(a).pnl;
+                            const pnlB = calculateStockMetrics(b).pnl;
+                            comparison = pnlA - pnlB;
+                            break;
+                        case 'rrRatio':
+                            const rrA = calculateStockMetrics(a).rrRatio;
+                            const rrB = calculateStockMetrics(b).rrRatio;
+                            comparison = rrA - rrB;
+                            break;
+                        default:
+                            comparison = 0;
+                    }
+                    
+                    return currentSortDirection === 'asc' ? comparison : -comparison;
+                });
+
+                // 2. Filter by tags
+                if (selectedCustomer) {
+                    filteredStocks = filteredStocks.filter(stock => (stock.customerId || '').toUpperCase() === selectedCustomer);
+                }
+                if (selectedTicker) {
+                    filteredStocks = filteredStocks.filter(stock => (stock.ticker || '').toUpperCase() === selectedTicker);
+                }
+                
+                // 3. Filter by search input
+                const searchTerm = searchInput.value.toLowerCase();
+                if (searchTerm) {
+                     filteredStocks = stocks.filter(stock => {
+                        const customerId = stock.customerId || '';
+                        const ticker = stock.ticker || '';
+                        return customerId.toLowerCase().includes(searchTerm) ||
+                               ticker.toLowerCase().includes(searchTerm);
+                    });
+                }
+                
+                if (filteredStocks.length === 0) {
+                    stockListBody.innerHTML = `<tr><td colspan="9" class="text-center p-8 text-gray-500">Không có dữ liệu phù hợp.</td></tr>`;
+                } else {
+                    emptyState.classList.add('hidden');
+                    filteredStocks.forEach(stock => {
+                        const marketPrice = parsePrice(stock.marketPrice);
+                        const buyPrice = parsePrice(stock.buyPrice);
+                        const targetPrice = parsePrice(stock.targetPrice);
+                        const stopLoss = parsePrice(stock.stopLoss);
+                        
+                        const metrics = calculateStockMetrics(stock);
+                        const pnlColor = metrics.pnl > 0 ? 'text-green-600' : metrics.pnl < 0 ? 'text-red-600' : 'text-gray-700';
+                        const pnlSign = metrics.pnl > 0 ? '+' : '';
+
+                        const stockItem = document.createElement('tr');
+                        stockItem.className = 'stock-item lg:table-row bg-white border-b hover:bg-gray-50 fade-in';
+                        stockItem.innerHTML = `
+                            <td class="stock-cell lg:table-cell px-6 py-4 font-medium text-gray-900" data-label="Mã KH">${(stock.customerId || '').toUpperCase()}</td>
+                            <td class="stock-cell lg:table-cell px-6 py-4 font-medium" data-label="Mã CP">${(stock.ticker || '').toUpperCase()}</td>
+                            <td class="stock-cell lg:table-cell px-6 py-4" data-label="Ngày giờ thêm">${stock.dateAdded || ''}</td>
+                            <td class="stock-cell lg:table-cell px-6 py-4" data-label="Giá Mua">${buyPrice.toFixed(3)}</td>
+                            <td class="stock-cell lg:table-cell px-6 py-4 font-bold" data-label="Giá TT">${marketPrice > 0 ? marketPrice.toFixed(3) : 'N/A'}</td>
+                            <td class="stock-cell lg:table-cell px-6 py-4 font-semibold ${pnlColor}" data-label="Lãi/Lỗ">${marketPrice > 0 ? pnlSign + metrics.pnl.toFixed(2) + '%' : 'N/A'}</td>
+                            <td class="stock-cell lg:table-cell px-6 py-4 text-green-600 font-semibold" data-label="Giá Chốt Lời">${targetPrice > 0 ? targetPrice.toFixed(3) : ''}</td>
+                            <td class="stock-cell lg:table-cell px-6 py-4 text-red-600 font-semibold" data-label="Giá Cắt Lỗ">${stopLoss > 0 ? stopLoss.toFixed(3) : ''}</td>
+                            <td class="stock-cell lg:table-cell px-6 py-4 font-bold" data-label="R/R">${metrics.rrRatio > 0 ? metrics.rrRatio.toFixed(2) : ''}</td>
+                            <td class="stock-cell lg:table-cell px-6 py-4 text-center" data-label="Hành động">
+                                <div class="flex items-center justify-center gap-2">
+                                    <button class="edit-btn text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors" data-id="${stock.id}" title="Chỉnh sửa">
+                                        Sửa
+                                    </button>
+                                    <button class="delete-btn text-red-600 hover:text-red-800 font-medium px-2 py-1 rounded hover:bg-red-50 transition-colors" data-id="${stock.id}" title="Xóa">
+                                        Xóa
+                                    </button>
+                                </div>
+                            </td>
+                        `;
+                        stockListBody.appendChild(stockItem);
+                    });
+                }
+                updateActiveTags();
+            };
+
+            const fetchStocks = async () => {
+                refreshBtn.disabled = true;
+                refreshBtn.textContent = 'Đang tải...';
+                try {
+                    const response = await fetchWithApiRotation();
+                    const data = await response.json();
+                    stocks = data.filter(s => s.id && s.customerId).map(s => ({...s}));
+                    renderStockList();
+                    renderCustomerTags();
+                    renderTickerTags();
+                    updateDashboard(); // Cập nhật dashboard
+                } catch (error) {
+                    stockListBody.innerHTML = `<tr><td colspan="9" class="text-center p-8 text-red-500"><strong>Lỗi!</strong> Không thể tải dữ liệu từ Google Sheet.</td></tr>`;
+                } finally {
+                    refreshBtn.disabled = false;
+                    refreshBtn.innerHTML = `<svg id="refresh-icon" class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M4 4l1.5 1.5A9 9 0 0120.5 15M20 20l-1.5-1.5A9 9 0 003.5 9"></path></svg> <span id="refresh-btn-text">Làm mới giá</span>`;
+                }
+            };
+
+            const openEditModal = (stockId) => {
+                const stock = stocks.find(s => s.id === stockId);
+                if (!stock) return;
+                document.getElementById('edit-id').value = stock.id;
+                document.getElementById('edit-customer-id').value = stock.customerId;
+                document.getElementById('edit-ticker').value = stock.ticker;
+                document.getElementById('edit-buy-price').value = (stock.buyPrice || '').toString().replace('.', ',');
+                document.getElementById('edit-market-price').value = (stock.marketPrice || '').toString().replace('.', ',');
+                document.getElementById('edit-target-price').value = (stock.targetPrice || '').toString().replace('.', ',');
+                document.getElementById('edit-stop-loss').value = (stock.stopLoss || '').toString().replace('.', ',');
+                document.getElementById('edit-rr-ratio').value = (stock.rrRatio || '').toString().replace('.', ',');
+                editModal.classList.remove('hidden');
+            };
+            
+            const closeEditModal = () => { editModal.classList.add('hidden'); };
+            const closeConfirmModal = () => { confirmModal.classList.add('hidden'); onConfirmCallback = null; };
+
+            const openConfirmModal = (message, onConfirm) => {
+                confirmMessage.textContent = message;
+                onConfirmCallback = onConfirm;
+                confirmModal.classList.remove('hidden');
+            };
+
+            const setupRRCalculations = (form) => {
+                const buyPriceEl = form.querySelector('[id*="buy-price"]');
+                const targetPriceEl = form.querySelector('[id*="target-price"]');
+                const stopLossEl = form.querySelector('[id*="stop-loss"]');
+                const rrRatioEl = form.querySelector('[id*="rr-ratio"]');
+
+                const calculate = (event) => {
+                    const buyPrice = parsePrice(buyPriceEl.value);
+                    const targetPrice = parsePrice(targetPriceEl.value);
+                    const stopLoss = parsePrice(stopLossEl.value);
+                    const rrRatio = parsePrice(rrRatioEl.value);
+                    
+                    const changedEl = event.target;
+                    
+
+
+                    // Kiểm tra điều kiện cơ bản
+                    if (buyPrice > 0 && stopLoss > 0 && buyPrice > stopLoss) {
+                        const risk = buyPrice - stopLoss;
+
+                        // Nếu thay đổi tỉ lệ R/R, tính giá chốt lời
+                        if (changedEl === rrRatioEl && rrRatio > 0) {
+                            const reward = risk * rrRatio;
+                            const newTargetPrice = buyPrice + reward;
+                            targetPriceEl.value = newTargetPrice.toFixed(3).replace('.', ',');
+                        } 
+                        // Nếu thay đổi giá chốt lời, tính tỉ lệ R/R
+                        else if (changedEl === targetPriceEl && targetPrice > buyPrice) {
+                            const reward = targetPrice - buyPrice;
+                            if (risk > 0) {
+                                rrRatioEl.value = (reward / risk).toFixed(2).replace('.', ',');
+                            }
+                        }
+                        // Nếu thay đổi giá mua hoặc giá cắt lỗ
+                        else if (changedEl === buyPriceEl || changedEl === stopLossEl) {
+                            // Nếu có giá chốt lời, tính lại tỉ lệ R/R
+                            if (targetPrice > buyPrice) {
+                                const reward = targetPrice - buyPrice;
+                                if (risk > 0) {
+                                    rrRatioEl.value = (reward / risk).toFixed(2).replace('.', ',');
+                                }
+                            }
+                            // Nếu có tỉ lệ R/R, tính lại giá chốt lời
+                            else if (rrRatio > 0) {
+                                const reward = risk * rrRatio;
+                                const newTargetPrice = buyPrice + reward;
+                                targetPriceEl.value = newTargetPrice.toFixed(3).replace('.', ',');
+                            }
+                            // Nếu không có cả hai, tự động đặt tỉ lệ R/R mặc định là 2.5 và tính giá chốt lời
+                            else {
+                                const defaultRR = 2.5;
+                                const reward = risk * defaultRR;
+                                const newTargetPrice = buyPrice + reward;
+                                targetPriceEl.value = newTargetPrice.toFixed(3).replace('.', ',');
+                                rrRatioEl.value = defaultRR.toFixed(2).replace('.', ',');
+                            }
+                        }
+                    } else {
+                        // Nếu điều kiện không hợp lệ, xóa các trường tính toán
+                        if (changedEl === buyPriceEl || changedEl === stopLossEl) {
+                            if (buyPrice <= 0 || stopLoss <= 0 || buyPrice <= stopLoss) {
+                                targetPriceEl.value = '';
+                                rrRatioEl.value = '';
+                            }
+                        }
+                    }
+                };
+
+                // Thêm debounce để tránh tính toán quá nhiều lần
+                let timeoutId;
+                const debouncedCalculate = (event) => {
+                    clearTimeout(timeoutId);
+                    timeoutId = setTimeout(() => calculate(event), 300);
+                };
+
+                buyPriceEl.addEventListener('input', debouncedCalculate);
+                targetPriceEl.addEventListener('input', debouncedCalculate);
+                stopLossEl.addEventListener('input', debouncedCalculate);
+                rrRatioEl.addEventListener('input', debouncedCalculate);
+            };
+
+            // --- Event Listeners ---
+            stockForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const customerIdInput = document.getElementById('customer-id').value.toUpperCase();
+                const tickerInput = document.getElementById('ticker').value.toUpperCase();
+                const isDuplicate = stocks.some(stock => 
+                    stock.customerId.toUpperCase() === customerIdInput && 
+                    stock.ticker.toUpperCase() === tickerInput
+                );
+                if (isDuplicate) {
+                    alert(`Mã cổ phiếu "${tickerInput}" đã tồn tại cho khách hàng "${customerIdInput}".`);
+                    return;
+                }
+
+                const existingCustomers = [...new Set(stocks.map(s => s.customerId.toUpperCase()))];
+                if (!existingCustomers.includes(customerIdInput)) {
+                    newlyAdded.customers[customerIdInput] = Date.now();
+                }
+                const existingTickers = [...new Set(stocks.map(s => s.ticker.toUpperCase()))];
+                if (!existingTickers.includes(tickerInput)) {
+                   newlyAdded.tickers[tickerInput] = Date.now();
+                }
+                localStorage.setItem('newlyAdded', JSON.stringify(newlyAdded));
+
+                addBtn.disabled = true;
+                addBtn.textContent = 'Đang thêm...';
+                const newStock = {
+                    id: Date.now(),
+                    customerId: customerIdInput,
+                    ticker: tickerInput,
+                    buyPrice: document.getElementById('buy-price').value.replace(',', '.'),
+                    targetPrice: document.getElementById('target-price').value.replace(',', '.'),
+                    stopLoss: document.getElementById('stop-loss').value.replace(',', '.'),
+                    rrRatio: document.getElementById('rr-ratio').value.replace(',', '.'),
+                    dateAdded: new Date().toLocaleString('vi-VN', { timeStyle: 'medium', dateStyle: 'short' }).replace(/, /g, ' '),
+                    marketPrice: document.getElementById('market-price').value.replace(',', '.') || ''
+                };
+                try {
+                    const options = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: [newStock] }) };
+                    await fetchWithApiRotation('', options);
+                    await fetchStocks(); 
+                    stockForm.reset();
+                    clearDraft(); // Clear draft after successful submission
+                    showNotification('Đã thêm cổ phiếu thành công!', 'success');
+                    document.getElementById('customer-id').focus();
+                } catch (error) {
+                    alert('Đã xảy ra lỗi khi thêm cổ phiếu.');
+                } finally {
+                    addBtn.disabled = false;
+                    addBtn.textContent = 'Thêm';
+                }
+            });
+
+            stockListBody.addEventListener('click', async (e) => {
+                const stockId = e.target.dataset.id;
+                if (!stockId) return;
+                if (e.target.classList.contains('delete-btn')) {
+                    e.target.textContent = 'Đang xóa...';
+                    e.target.disabled = true;
+                    try {
+                        await fetchWithApiRotation(`/id/${stockId}`, { method: 'DELETE' });
+                        await fetchStocks();
+                    } catch(error) {
+                        alert('Đã xảy ra lỗi khi xóa.');
+                        e.target.textContent = 'Xóa';
+                        e.target.disabled = false;
+                    }
+                }
+                if (e.target.classList.contains('edit-btn')) {
+                    openEditModal(stockId);
+                }
+            });
+
+            editForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                saveEditBtn.disabled = true;
+                saveEditBtn.textContent = 'Đang lưu...';
+                const stockId = document.getElementById('edit-id').value;
+                const updatedData = {
+                    customerId: document.getElementById('edit-customer-id').value.toUpperCase(),
+                    ticker: document.getElementById('edit-ticker').value.toUpperCase(),
+                    buyPrice: document.getElementById('edit-buy-price').value.replace(',', '.'),
+                    targetPrice: document.getElementById('edit-target-price').value.replace(',', '.'),
+                    stopLoss: document.getElementById('edit-stop-loss').value.replace(',', '.'),
+                    rrRatio: document.getElementById('edit-rr-ratio').value.replace(',', '.'),
+                    marketPrice: document.getElementById('edit-market-price').value.replace(',', '.'),
+                    dateAdded: new Date().toLocaleString('vi-VN', { timeStyle: 'medium', dateStyle: 'short' }).replace(/, /g, ' ')
+                };
+                try {
+                    const options = { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: updatedData }) };
+                    await fetchWithApiRotation(`/id/${stockId}`, options);
+                    await fetchStocks(); 
+                    closeEditModal();
+                } catch (error) {
+                    alert('Đã xảy ra lỗi khi cập nhật.');
+                } finally {
+                    saveEditBtn.disabled = false;
+                    saveEditBtn.textContent = 'Lưu thay đổi';
+                }
+            });
+
+            tagsContainer.addEventListener('click', async (e) => {
+                const deleteBtn = e.target.closest('.delete-customer-btn');
+                if (deleteBtn) {
+                    e.stopPropagation(); // Ngăn sự kiện click vào tag cha
+                    const customerId = deleteBtn.dataset.deleteCustomer;
+                    const message = `Bạn có chắc chắn muốn xóa tất cả dữ liệu của khách hàng "${customerId}" không? Hành động này không thể hoàn tác.`;
+                    openConfirmModal(message, async () => {
+                        try {
+                            await fetchWithApiRotation(`/customerId/${customerId}`, { method: 'DELETE' });
+                            await fetchStocks();
+                        } catch (error) {
+                            alert(`Đã xảy ra lỗi khi xóa khách hàng ${customerId}.`);
+                        }
+                    });
+                    return;
+                }
+
+                if (e.target.closest('.customer-tag')) {
+                    const customerId = e.target.closest('.customer-tag').dataset.customerId.toUpperCase();
+                    selectedCustomer = selectedCustomer === customerId ? '' : customerId;
+                    renderStockList();
+                }
+            });
+            
+            tickerTagsContainer.addEventListener('click', (e) => {
+                if (e.target.closest('.ticker-tag')) {
+                    const ticker = e.target.closest('.ticker-tag').dataset.ticker.toUpperCase();
+                    selectedTicker = selectedTicker === ticker ? '' : ticker;
+                    renderStockList();
+                }
+            });
+
+            refreshBtn.addEventListener('click', fetchStocks);
+            cancelEditBtn.addEventListener('click', closeEditModal);
+            
+            searchInput.addEventListener('input', () => {
+                selectedCustomer = '';
+                selectedTicker = '';
+                renderStockList();
+            });
+
+            // Sort event listeners
+            sortDateBtn.addEventListener('click', () => {
+                if (currentSortBy === 'date') {
+                    currentSortDirection = currentSortDirection === 'desc' ? 'asc' : 'desc';
+                } else {
+                    currentSortBy = 'date';
+                    currentSortDirection = 'desc';
+                }
+                renderStockList();
+            });
+
+            sortBuyPriceBtn.addEventListener('click', () => {
+                if (currentSortBy === 'buyPrice') {
+                    currentSortDirection = currentSortDirection === 'desc' ? 'asc' : 'desc';
+                } else {
+                    currentSortBy = 'buyPrice';
+                    currentSortDirection = 'desc';
+                }
+                renderStockList();
+            });
+
+            sortPnlBtn.addEventListener('click', () => {
+                if (currentSortBy === 'pnl') {
+                    currentSortDirection = currentSortDirection === 'desc' ? 'asc' : 'desc';
+                } else {
+                    currentSortBy = 'pnl';
+                    currentSortDirection = 'desc';
+                }
+                renderStockList();
+            });
+
+            sortRrBtn.addEventListener('click', () => {
+                if (currentSortBy === 'rrRatio') {
+                    currentSortDirection = currentSortDirection === 'desc' ? 'asc' : 'desc';
+                } else {
+                    currentSortBy = 'rrRatio';
+                    currentSortDirection = 'desc';
+                }
+                renderStockList();
+            });
+
+            cancelConfirmBtn.addEventListener('click', closeConfirmModal);
+            confirmDeleteBtn.addEventListener('click', () => {
+                if (typeof onConfirmCallback === 'function') {
+                    onConfirmCallback();
+                }
+                closeConfirmModal();
+            });
+
+            // Reset calculation fields
+            resetCalcBtn.addEventListener('click', () => {
+                document.getElementById('target-price').value = '';
+                document.getElementById('rr-ratio').value = '';
+                document.getElementById('stop-loss').value = '';
+            });
+
+
+
+            // Auto-save draft on form input
+            const formInputs = ['customer-id', 'ticker', 'buy-price', 'stop-loss', 'rr-ratio', 'target-price', 'market-price'];
+            formInputs.forEach(inputId => {
+                const input = document.getElementById(inputId);
+                if (input) {
+                    input.addEventListener('input', () => {
+                        // Debounce auto-save
+                        clearTimeout(input.autoSaveTimeout);
+                        input.autoSaveTimeout = setTimeout(autoSaveDraft, 1000);
+                    });
+                }
+            });
+
+            // --- Initial Load ---
+            loadAndCleanNewlyAdded();
+            restoreDraft(); // Restore draft if available
+            fetchStocks();
+            setupRRCalculations(document.getElementById('stock-form'));
+            setupRRCalculations(document.getElementById('edit-form'));
+
+            // Dashboard functions
+            const updateDashboard = () => {
+                if (stocks.length === 0) {
+                    // Reset dashboard khi không có dữ liệu
+                    document.getElementById('total-pnl-percent').textContent = '0.00%';
+                    document.getElementById('profitable-customers').textContent = '0';
+                    document.getElementById('profitable-percent').textContent = '0%';
+                    document.getElementById('losing-customers').textContent = '0';
+                    document.getElementById('losing-percent').textContent = '0%';
+                    document.getElementById('total-stocks').textContent = '0';
+                    document.getElementById('total-customers').textContent = '0 khách hàng';
+                    document.getElementById('dashboard-count').textContent = '0';
+                    document.getElementById('customer-performance-chart').innerHTML = '<p class="text-gray-500 text-center">Chưa có dữ liệu</p>';
+                    document.getElementById('top-customers-list').innerHTML = '<p class="text-gray-500 text-center">Chưa có dữ liệu</p>';
+                    return;
+                }
+
+                // Show skeleton loading first
+                showSkeletonLoading();
+
+                // Simulate loading delay for better UX
+                setTimeout(() => {
+                    // Tính toán tổng quan - chỉ tính % không có VND
+                    let totalBuyValue = 0;
+                    let totalPnl = 0;
+                    const uniqueStocks = new Set();
+                    const uniqueCustomers = new Set();
+                    const customerStats = {};
+
+                    stocks.forEach(stock => {
+                        const metrics = calculateStockMetrics(stock);
+                        const buyPrice = parsePrice(stock.buyPrice);
+                        const marketPrice = parsePrice(stock.marketPrice);
+                        const currentValue = marketPrice > 0 ? marketPrice : buyPrice;
+                        
+                        totalBuyValue += buyPrice;
+                        totalPnl += (currentValue - buyPrice);
+                        
+                        uniqueStocks.add(stock.ticker);
+                        uniqueCustomers.add(stock.customerId);
+                        
+                        // Thống kê theo khách hàng
+                        if (!customerStats[stock.customerId]) {
+                            customerStats[stock.customerId] = {
+                                totalValue: 0,
+                                totalBuyValue: 0,
+                                totalPnl: 0,
+                                stockCount: 0
+                            };
+                        }
+                        
+                        customerStats[stock.customerId].totalValue += currentValue;
+                        customerStats[stock.customerId].totalBuyValue += buyPrice;
+                        customerStats[stock.customerId].totalPnl += (currentValue - buyPrice);
+                        customerStats[stock.customerId].stockCount += 1;
+                    });
+
+                    // Tính toán thống kê khách hàng
+                    const profitableCustomers = Object.values(customerStats).filter(c => c.totalPnl > 0).length;
+                    const losingCustomers = Object.values(customerStats).filter(c => c.totalPnl < 0).length;
+                    const totalCustomers = Object.keys(customerStats).length;
+
+                    // Cập nhật thống kê tổng quan - chỉ hiển thị %
+                    const totalPnlPercent = totalBuyValue > 0 ? ((totalPnl / totalBuyValue) * 100) : 0;
+                    document.getElementById('total-pnl-percent').textContent = `${totalPnlPercent.toFixed(2)}%`;
+                    
+                    document.getElementById('profitable-customers').textContent = profitableCustomers;
+                    document.getElementById('profitable-percent').textContent = totalCustomers > 0 ? 
+                        `${((profitableCustomers / totalCustomers) * 100).toFixed(0)}%` : '0%';
+                    
+                    document.getElementById('losing-customers').textContent = losingCustomers;
+                    document.getElementById('losing-percent').textContent = totalCustomers > 0 ? 
+                        `${((losingCustomers / totalCustomers) * 100).toFixed(0)}%` : '0%';
+                    
+                    document.getElementById('total-stocks').textContent = uniqueStocks.size;
+                    document.getElementById('total-customers').textContent = `${uniqueCustomers.size} khách hàng`;
+                    document.getElementById('dashboard-count').textContent = stocks.length;
+
+                    // Cập nhật thời gian - format DD/MM/YYYY HH:MM
+                    const now = new Date();
+                    const formattedTime = now.toLocaleString('vi-VN', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    document.getElementById('last-update-time').textContent = formattedTime;
+
+                    // Render biểu đồ hiệu suất khách hàng
+                    renderCustomerPerformanceChart(customerStats);
+                    
+                    // Render top khách hàng
+                    renderTopCustomers(customerStats);
+                }, 300); // 300ms delay for skeleton loading
+            };
+
+            const renderCustomerPerformanceChart = (customerStats) => {
+                const chartContainer = document.getElementById('customer-performance-chart');
+                chartContainer.innerHTML = '';
+
+                const customers = Object.keys(customerStats);
+                if (customers.length === 0) {
+                    chartContainer.innerHTML = '<p class="text-gray-500 text-center text-sm">Chưa có dữ liệu</p>';
+                    return;
+                }
+
+                // Sắp xếp theo % lãi/lỗ
+                const sortedCustomers = customers.sort((a, b) => {
+                    const pnlA = customerStats[a].totalBuyValue > 0 ? 
+                        (customerStats[a].totalPnl / customerStats[a].totalBuyValue) * 100 : 0;
+                    const pnlB = customerStats[b].totalBuyValue > 0 ? 
+                        (customerStats[b].totalPnl / customerStats[b].totalBuyValue) * 100 : 0;
+                    return pnlB - pnlA; // Sắp xếp giảm dần theo % lãi
+                }).slice(0, 6); // Chỉ hiển thị top 6
+
+                // Tìm % lãi/lỗ cao nhất để tính tỷ lệ chiều cao
+                const maxPnlPercent = Math.max(...sortedCustomers.map(c => {
+                    const stats = customerStats[c];
+                    return stats.totalBuyValue > 0 ? Math.abs((stats.totalPnl / stats.totalBuyValue) * 100) : 0;
+                }));
+
+                sortedCustomers.forEach((customerId, index) => {
+                    const stats = customerStats[customerId];
+                    const pnlPercent = stats.totalBuyValue > 0 ? 
+                        ((stats.totalPnl / stats.totalBuyValue) * 100) : 0;
+                    
+                    // Tính chiều cao dựa trên % lãi/lỗ tuyệt đối
+                    const height = maxPnlPercent > 0 ? (Math.abs(pnlPercent) / maxPnlPercent) * 150 : 0;
+                    const minHeight = 20; // Chiều cao tối thiểu
+                    const finalHeight = Math.max(height, minHeight);
+                    
+                    const barColor = pnlPercent >= 0 ? 'bg-green-500' : 'bg-red-500';
+                    const textColor = pnlPercent >= 0 ? 'text-green-600' : 'text-red-600';
+                    
+                    const bar = document.createElement('div');
+                    bar.className = 'flex flex-col items-center relative group';
+                    bar.innerHTML = `
+                        <div class="relative">
+                            <div class="${barColor} w-8 md:w-10 rounded-t-lg transition-all duration-700 ease-out hover:opacity-80 shadow-sm transform hover:scale-105" 
+                                 style="height: 0px;" 
+                                 data-height="${finalHeight}"
+                                 title="${customerId}: ${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%">
+                            </div>
+                            <!-- Enhanced Tooltip -->
+                            <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                                <div class="font-semibold">${customerId}</div>
+                                <div class="${textColor}">${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%</div>
+                                <div class="text-gray-300">${stats.stockCount} mã CP</div>
+                                <div class="text-gray-300">Tổng: ${stats.totalBuyValue.toLocaleString()} VND</div>
+                                <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                            </div>
+                        </div>
+                        <div class="text-xs text-gray-600 mt-2 text-center">
+                            <div class="font-medium">${customerId}</div>
+                            <div class="${textColor} font-semibold">
+                                ${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(1)}%
+                            </div>
+                        </div>
+                    `;
+                    
+                    chartContainer.appendChild(bar);
+
+                    // Animate bar height
+                    setTimeout(() => {
+                        const barElement = bar.querySelector(`[data-height="${finalHeight}"]`);
+                        if (barElement) {
+                            barElement.style.height = `${finalHeight}px`;
+                        }
+                    }, index * 100); // Stagger animation
+                });
+            };
+
+            const renderTopCustomers = (customerStats) => {
+                const container = document.getElementById('top-customers-list');
+                container.innerHTML = '';
+
+                const customers = Object.keys(customerStats);
+                if (customers.length === 0) {
+                    container.innerHTML = '<p class="text-gray-500 text-center text-sm">Chưa có dữ liệu</p>';
+                    return;
+                }
+
+                // Sắp xếp theo % lãi/lỗ
+                const sortedCustomers = customers.sort((a, b) => {
+                    const pnlA = customerStats[a].totalBuyValue > 0 ? 
+                        (customerStats[a].totalPnl / customerStats[a].totalBuyValue) * 100 : 0;
+                    const pnlB = customerStats[b].totalBuyValue > 0 ? 
+                        (customerStats[b].totalPnl / customerStats[b].totalBuyValue) * 100 : 0;
+                    return pnlB - pnlA; // Sắp xếp giảm dần theo % lãi
+                }).slice(0, 5); // Top 5
+
+                sortedCustomers.forEach((customerId, index) => {
+                    const stats = customerStats[customerId];
+                    const pnlPercent = stats.totalBuyValue > 0 ? 
+                        ((stats.totalPnl / stats.totalBuyValue) * 100) : 0;
+                    
+                    const item = document.createElement('div');
+                    item.className = 'flex items-center justify-between p-3 md:p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow border border-gray-100';
+                    item.innerHTML = `
+                        <div class="flex items-center gap-2 md:gap-3">
+                            <div class="w-8 h-8 md:w-10 md:h-10 ${pnlPercent >= 0 ? 'bg-green-100' : 'bg-red-100'} rounded-lg flex items-center justify-center ${pnlPercent >= 0 ? 'text-green-600' : 'text-red-600'} font-bold text-sm">
+                                ${index + 1}
+                            </div>
+                            <div>
+                                <div class="font-semibold text-gray-900 text-sm md:text-base">${customerId}</div>
+                                <div class="text-xs md:text-sm text-gray-500">${stats.stockCount} mã CP</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-lg md:text-xl font-bold ${pnlPercent >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                ${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(1)}%
+                            </div>
+                        </div>
+                    `;
+                    
+                    container.appendChild(item);
+                });
+            };
+
+            // Dashboard refresh
+            refreshDashboardBtn.addEventListener('click', () => {
+                refreshDashboardBtn.disabled = true;
+                refreshDashboardBtn.innerHTML = `
+                    <svg class="h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M4 4l1.5 1.5A9 9 0 0120.5 15M20 20l-1.5-1.5A9 9 0 003.5 9"></path>
+                    </svg>
+                    <span>Đang cập nhật...</span>
+                `;
+                
+                fetchStocks().finally(() => {
+                    refreshDashboardBtn.disabled = false;
+                    refreshDashboardBtn.innerHTML = `
+                        <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M4 4l1.5 1.5A9 9 0 0120.5 15M20 20l-1.5-1.5A9 9 0 003.5 9"></path>
+                        </svg>
+                        <span>Refresh</span>
+                    `;
+                });
+            });
+
+            // Event listeners for edit and delete buttons
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('edit-btn')) {
+                    const stockId = e.target.getAttribute('data-id');
+                    const stock = stocks.find(s => s.id === stockId);
+                    if (stock) {
+                        openEditModal(stock);
+                    }
+                }
+                
+                if (e.target.classList.contains('delete-btn')) {
+                    const stockId = e.target.getAttribute('data-id');
+                    const stock = stocks.find(s => s.id === stockId);
+                    if (stock) {
+                        if (confirm(`Bạn có chắc chắn muốn xóa cổ phiếu ${stock.ticker} của khách hàng ${stock.customerId}?`)) {
+                            deleteStock(stockId);
+                        }
+                    }
+                }
+            });
+
+            // Skeleton loading component
+            const showSkeletonLoading = () => {
+                const chartContainer = document.getElementById('customer-performance-chart');
+                chartContainer.innerHTML = `
+                    <div class="flex items-end justify-center gap-2 md:gap-3">
+                        ${Array.from({length: 6}, (_, i) => `
+                            <div class="flex flex-col items-center">
+                                <div class="w-8 md:w-10 bg-gray-200 rounded-t-lg animate-pulse" style="height: ${Math.random() * 100 + 50}px;"></div>
+                                <div class="mt-2">
+                                    <div class="w-12 h-3 bg-gray-200 rounded animate-pulse mb-1"></div>
+                                    <div class="w-8 h-2 bg-gray-200 rounded animate-pulse"></div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+
+                const topCustomersContainer = document.getElementById('top-customers-list');
+                topCustomersContainer.innerHTML = `
+                    ${Array.from({length: 5}, (_, i) => `
+                        <div class="flex items-center justify-between p-3 md:p-4 bg-white rounded-lg shadow-sm border border-gray-100">
+                            <div class="flex items-center gap-2 md:gap-3">
+                                <div class="w-8 h-8 md:w-10 md:h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+                                <div>
+                                    <div class="w-20 h-4 bg-gray-200 rounded animate-pulse mb-1"></div>
+                                    <div class="w-16 h-3 bg-gray-200 rounded animate-pulse"></div>
+                                </div>
+                            </div>
+                            <div class="w-16 h-6 bg-gray-200 rounded animate-pulse"></div>
+                        </div>
+                    `).join('')}
+                `;
+            };
+
+            // Quick Actions Event Listeners
+            document.getElementById('quick-add-btn').addEventListener('click', () => {
+                // Scroll to form
+                document.getElementById('stock-form').scrollIntoView({ behavior: 'smooth' });
+                // Focus on first input
+                setTimeout(() => {
+                    document.getElementById('customer-id').focus();
+                }, 500);
+            });
+
+            document.getElementById('export-btn').addEventListener('click', () => {
+                exportDashboardData();
+            });
+
+            document.getElementById('view-toggle-btn').addEventListener('click', () => {
+                toggleDashboardView();
+            });
+
+            // Export functionality
+            const exportDashboardData = () => {
+                if (stocks.length === 0) {
+                    alert('Không có dữ liệu để xuất!');
+                    return;
+                }
+
+                // Create CSV content
+                const headers = ['Mã KH', 'Mã CP', 'Ngày', 'Giá Mua', 'Giá TT', 'Lãi/Lỗ (%)', 'Giá Chốt Lời', 'Giá Cắt Lỗ', 'R/R'];
+                const csvContent = [
+                    headers.join(','),
+                    ...stocks.map(stock => {
+                        const metrics = calculateStockMetrics(stock);
+                        return [
+                            stock.customerId || '',
+                            stock.ticker || '',
+                            stock.dateAdded || '',
+                            stock.buyPrice || '',
+                            stock.marketPrice || '',
+                            metrics.pnl.toFixed(2),
+                            stock.targetPrice || '',
+                            stock.stopLoss || '',
+                            metrics.rrRatio.toFixed(2)
+                        ].join(',');
+                    })
+                ].join('\n');
+
+                // Create and download file
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', `dashboard_export_${new Date().toISOString().split('T')[0]}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            // Toggle dashboard view
+            let isGridView = true;
+            const toggleDashboardView = () => {
+                const toggleBtn = document.getElementById('view-toggle-btn');
+                const chartContainer = document.getElementById('customer-performance-chart');
+                const topCustomersContainer = document.getElementById('top-customers-list');
+                const dashboardGrid = document.querySelector('.grid.grid-cols-1.lg\\:grid-cols-2');
+                
+                isGridView = !isGridView;
+                
+                if (isGridView) {
+                    // Switch to grid view
+                    toggleBtn.innerHTML = `
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                        </svg>
+                        <span class="hidden sm:inline">Grid</span>
+                    `;
+                    
+                    // Show grid layout
+                    dashboardGrid.classList.remove('grid-cols-1');
+                    dashboardGrid.classList.add('grid-cols-1', 'lg:grid-cols-2');
+                    chartContainer.classList.remove('hidden');
+                    topCustomersContainer.classList.remove('hidden');
+                    
+                    // Remove list view if exists
+                    const listView = document.getElementById('dashboard-list-view');
+                    if (listView) {
+                        listView.remove();
+                    }
+                } else {
+                    // Switch to list view
+                    toggleBtn.innerHTML = `
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                        </svg>
+                        <span class="hidden sm:inline">List</span>
+                    `;
+                    
+                    // Hide grid layout
+                    chartContainer.classList.add('hidden');
+                    topCustomersContainer.classList.add('hidden');
+                    
+                    // Create list view
+                    const listView = document.createElement('div');
+                    listView.id = 'dashboard-list-view';
+                    listView.className = 'space-y-4';
+                    
+                    // Add list view content
+                    if (stocks.length > 0) {
+                        const customerStats = {};
+                        
+                        // Calculate customer stats
+                        stocks.forEach(stock => {
+                            const metrics = calculateStockMetrics(stock);
+                            const buyPrice = parsePrice(stock.buyPrice);
+                            const marketPrice = parsePrice(stock.marketPrice);
+                            const currentValue = marketPrice > 0 ? marketPrice : buyPrice;
+                            
+                            if (!customerStats[stock.customerId]) {
+                                customerStats[stock.customerId] = {
+                                    totalValue: 0,
+                                    totalBuyValue: 0,
+                                    totalPnl: 0,
+                                    stockCount: 0,
+                                    stocks: []
+                                };
+                            }
+                            
+                            customerStats[stock.customerId].totalValue += currentValue;
+                            customerStats[stock.customerId].totalBuyValue += buyPrice;
+                            customerStats[stock.customerId].totalPnl += (currentValue - buyPrice);
+                            customerStats[stock.customerId].stockCount += 1;
+                            customerStats[stock.customerId].stocks.push(stock);
+                        });
+                        
+                        // Sort customers by PnL
+                        const sortedCustomers = Object.keys(customerStats).sort((a, b) => {
+                            const pnlA = customerStats[a].totalBuyValue > 0 ? 
+                                (customerStats[a].totalPnl / customerStats[a].totalBuyValue) * 100 : 0;
+                            const pnlB = customerStats[b].totalBuyValue > 0 ? 
+                                (customerStats[b].totalPnl / customerStats[b].totalBuyValue) * 100 : 0;
+                            return pnlB - pnlA;
+                        });
+                        
+                        // Create list items
+                        sortedCustomers.forEach(customerId => {
+                            const stats = customerStats[customerId];
+                            const pnlPercent = stats.totalBuyValue > 0 ? 
+                                ((stats.totalPnl / stats.totalBuyValue) * 100) : 0;
+                            
+                            const listItem = document.createElement('div');
+                            listItem.className = 'bg-white border border-gray-200 p-4 rounded-lg shadow-sm';
+                            listItem.innerHTML = `
+                                <div class="flex items-center justify-between mb-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 ${pnlPercent >= 0 ? 'bg-green-100' : 'bg-red-100'} rounded-lg flex items-center justify-center ${pnlPercent >= 0 ? 'text-green-600' : 'text-red-600'} font-bold">
+                                            ${customerId}
+                                        </div>
+                                        <div>
+                                            <h4 class="font-semibold text-gray-900">Khách hàng ${customerId}</h4>
+                                            <p class="text-sm text-gray-500">${stats.stockCount} mã cổ phiếu</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-lg font-bold ${pnlPercent >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                            ${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%
+                                        </div>
+                                        <div class="text-sm text-gray-500">
+                                            ${stats.totalBuyValue.toLocaleString()} VND
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                                    ${stats.stocks.map(stock => {
+                                        const metrics = calculateStockMetrics(stock);
+                                        const pnlColor = metrics.pnl > 0 ? 'text-green-600' : metrics.pnl < 0 ? 'text-red-600' : 'text-gray-600';
+                                        return `
+                                            <div class="bg-gray-50 p-2 rounded">
+                                                <div class="font-medium">${stock.ticker}</div>
+                                                <div class="${pnlColor}">${metrics.pnl >= 0 ? '+' : ''}${metrics.pnl.toFixed(1)}%</div>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            `;
+                            listView.appendChild(listItem);
+                        });
+                    } else {
+                        listView.innerHTML = '<p class="text-gray-500 text-center py-8">Chưa có dữ liệu</p>';
+                    }
+                    
+                    // Insert list view after the grid
+                    dashboardGrid.parentNode.insertBefore(listView, dashboardGrid.nextSibling);
+                }
+            };
+        });
+    </script>
+</body>
+</html>
