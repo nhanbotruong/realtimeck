@@ -6,6 +6,7 @@ import pytz
 import os
 import json
 import time as time_module
+import numpy as np
 
 # ====== CẤU HÌNH GITHUB ACTIONS ======
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1xuU1VzRtZtVlNE_GLzebROre4I5ZvwLnU3qGskY10BQ/edit?usp=sharing"
@@ -37,6 +38,9 @@ def get_realtime_price(ticker_clean):
         stock_data = vnstock.stock_intraday_data(symbol=ticker_clean, page_size=1)
         if stock_data is not None and len(stock_data) > 0:
             last_price = stock_data.iloc[0]['close']
+            # Chuyển đổi numpy types thành Python native types
+            if isinstance(last_price, (np.integer, np.floating)):
+                last_price = float(last_price)
             return last_price, "realtime"
         else:
             return "N/A", "không có dữ liệu realtime"
@@ -59,6 +63,13 @@ def get_closing_price(ticker_clean):
             latest_data = stock_data.iloc[-1]  # Lấy dòng cuối cùng
             close_price = latest_data['close']
             trading_date = latest_data['time']
+            
+            # Chuyển đổi numpy types thành Python native types
+            if isinstance(close_price, (np.integer, np.floating)):
+                close_price = float(close_price)
+            if isinstance(trading_date, np.datetime64):
+                trading_date = str(trading_date)
+            
             return close_price, f"đóng cửa ({trading_date})"
         else:
             return "N/A", "không có dữ liệu lịch sử"
@@ -126,16 +137,23 @@ def update_stock_prices(worksheet):
             else:
                 price, info = get_closing_price(ticker_clean)
             
+            # Đảm bảo giá trị là string hoặc number, không phải numpy types
+            if isinstance(price, (np.integer, np.floating)):
+                price = float(price)
+            elif price not in ['N/A', 'Lỗi', '']:
+                price = str(price)
+            
             prices_to_update.append([price])
             if price not in ['N/A', 'Lỗi', '']:
                 success_count += 1
             
             print(f"  - {ticker_clean}: {price} ({info})")
         
-        # Cập nhật Google Sheets
+        # Cập nhật Google Sheets - sử dụng API mới để tránh deprecation warnings
         if prices_to_update:
             range_to_update = f"H2:H{len(prices_to_update) + 1}"
-            worksheet.update(values=prices_to_update, range_name=range_to_update)
+            # Sử dụng API mới của gspread
+            worksheet.update(range_to_update, prices_to_update)
             print(f"\n✅ Cập nhật thành công {success_count}/{len(tickers)} mã!")
             
             # Thống kê
