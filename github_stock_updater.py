@@ -1,6 +1,6 @@
 import gspread
 from google.oauth2.service_account import Credentials
-from vnstock import Vnstock
+import vnstock
 from datetime import datetime, time, timedelta
 import pytz
 import os
@@ -30,31 +30,35 @@ def is_market_open():
     return is_weekday and is_time_ok
 
 # ====== 2. LẤY GIÁ REALTIME ======
-def get_realtime_price(vs, ticker_clean):
+def get_realtime_price(ticker_clean):
     """Lấy giá realtime của mã cổ phiếu"""
     try:
-        stock_data = vs.stock(symbol=ticker_clean)
-        quote_dict = vars(stock_data.quote)
-        last_price = quote_dict.get("lastPrice") or quote_dict.get("close", "N/A")
-        return last_price, "realtime"
+        # Sử dụng API mới của vnstock
+        stock_data = vnstock.stock_intraday_data(symbol=ticker_clean, page_size=1)
+        if stock_data is not None and len(stock_data) > 0:
+            last_price = stock_data.iloc[0]['close']
+            return last_price, "realtime"
+        else:
+            return "N/A", "không có dữ liệu realtime"
     except Exception as e:
         return "Lỗi", f"Lỗi realtime: {e}"
 
 # ====== 3. LẤY GIÁ ĐÓNG CỬA ======
-def get_closing_price(vs, ticker_clean):
+def get_closing_price(ticker_clean):
     """Lấy giá đóng cửa gần nhất của mã cổ phiếu"""
     try:
-        stock_data = vs.stock(symbol=ticker_clean)
-        
-        # Lấy dữ liệu 7 ngày gần nhất
+        # Sử dụng API mới của vnstock
+        from datetime import datetime, timedelta
         start_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
-        historical_data = stock_data.quote.data_source.history(start_date)
+        end_date = datetime.now().strftime('%Y-%m-%d')
         
-        if historical_data is not None and len(historical_data) > 0:
+        stock_data = vnstock.stock_historical_data(symbol=ticker_clean, start_date=start_date, end_date=end_date)
+        
+        if stock_data is not None and len(stock_data) > 0:
             # Lấy giá đóng cửa của ngày giao dịch gần nhất
-            latest_data = historical_data.iloc[-1]  # Lấy dòng cuối cùng
-            close_price = latest_data.get('close', 'N/A')
-            trading_date = latest_data.get('time', 'N/A')
+            latest_data = stock_data.iloc[-1]  # Lấy dòng cuối cùng
+            close_price = latest_data['close']
+            trading_date = latest_data['time']
             return close_price, f"đóng cửa ({trading_date})"
         else:
             return "N/A", "không có dữ liệu lịch sử"
@@ -91,7 +95,7 @@ def connect_google_sheets():
         return None
 
 # ====== 5. CẬP NHẬT GIÁ CỔ PHIẾU ======
-def update_stock_prices(worksheet, vs):
+def update_stock_prices(worksheet):
     """Cập nhật giá cổ phiếu vào Google Sheets"""
     try:
         # Lấy danh sách mã cổ phiếu từ cột C
@@ -118,9 +122,9 @@ def update_stock_prices(worksheet, vs):
             ticker_clean = str(ticker).strip().upper()
             
             if mode == "realtime":
-                price, info = get_realtime_price(vs, ticker_clean)
+                price, info = get_realtime_price(ticker_clean)
             else:
-                price, info = get_closing_price(vs, ticker_clean)
+                price, info = get_closing_price(ticker_clean)
             
             prices_to_update.append([price])
             if price not in ['N/A', 'Lỗi', '']:
@@ -168,9 +172,6 @@ def run_auto_update():
         print("❌ Không thể kết nối Google Sheets. Thoát chương trình.")
         return
     
-    # Khởi tạo vnstock
-    vs = Vnstock()
-    
     loop_count = 0
     max_loops = 1440  # Tối đa 24 giờ (1440 phút)
     
@@ -185,7 +186,7 @@ def run_auto_update():
             print("-" * 40)
             
             # Cập nhật giá cổ phiếu
-            success = update_stock_prices(worksheet, vs)
+            success = update_stock_prices(worksheet)
             
             if not success:
                 print("⚠️ Cập nhật không thành công, thử lại sau...")
