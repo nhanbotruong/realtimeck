@@ -41,6 +41,9 @@ def get_realtime_price(ticker_clean):
             # Chuyển đổi numpy types thành Python native types
             if isinstance(last_price, (np.integer, np.floating)):
                 last_price = float(last_price)
+            # Chia cho 1000 để hiển thị đúng đơn vị (VND)
+            if isinstance(last_price, (int, float)) and last_price > 1000:
+                last_price = last_price / 1000
             return last_price, "realtime"
         else:
             return "N/A", "không có dữ liệu realtime"
@@ -69,6 +72,10 @@ def get_closing_price(ticker_clean):
                 close_price = float(close_price)
             if isinstance(trading_date, np.datetime64):
                 trading_date = str(trading_date)
+            
+            # Chia cho 1000 để hiển thị đúng đơn vị (VND)
+            if isinstance(close_price, (int, float)) and close_price > 1000:
+                close_price = close_price / 1000
             
             return close_price, f"đóng cửa ({trading_date})"
         else:
