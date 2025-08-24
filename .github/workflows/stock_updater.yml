@@ -47,10 +47,8 @@ jobs:
       run: |
         python github_stock_updater.py
         
-    - name: Commit and push changes (if any)
+    - name: Log completion
       run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add -A
-        git diff --quiet && git diff --staged --quiet || git commit -m "Auto update stock prices - $(date)"
-        git push
+        echo "✅ Stock price update completed successfully!"
+        echo "📊 Data updated in Google Sheets"
+        echo "🕐 Completed at: $(date)"
