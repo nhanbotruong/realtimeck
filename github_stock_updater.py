@@ -25,7 +25,7 @@ _max_runtime_minutes = 350  # Restart trước 6 giờ để tránh timeout
 
 # Biến để theo dõi restart count
 _restart_count = 0
-_max_restarts = 100  # Giới hạn số lần restart
+_max_restarts = float('inf')  # Vô hạn restart - chỉ dừng khi cancel thủ công
 
 def load_restart_count():
     """Load restart count từ file"""
@@ -281,7 +281,12 @@ def run_auto_update():
     # Ghi lại thời gian bắt đầu
     _start_time = datetime.now()
     
-    print(f"📊 Restart count hiện tại: {_restart_count}/{_max_restarts}")
+    print(f"📊 Restart count hiện tại: {_restart_count} (vô hạn)")
+    
+    # Tính thời gian tổng cộng đã chạy
+    total_runtime_hours = (_restart_count * _max_runtime_minutes) / 60
+    if _restart_count > 0:
+        print(f"⏰ Thời gian tổng cộng đã chạy: {total_runtime_hours:.1f} giờ")
     
     # Kết nối Google Sheets
     worksheet = connect_google_sheets()
@@ -305,24 +310,22 @@ def run_auto_update():
                     print(f"\n⚠️ Đã chạy được {runtime_minutes:.1f} phút (gần 6 giờ)")
                     print(f"🔄 Tự động restart #{_restart_count} để tránh GitHub Actions timeout...")
                     print(f"📊 Tổng số lần cập nhật: {loop_count}")
-                    print(f"📊 Số lần restart: {_restart_count}/{_max_restarts}")
+                    print(f"📊 Số lần restart: {_restart_count} (vô hạn)")
                     
-                    if _restart_count >= _max_restarts:
-                        print("🛑 Đã đạt giới hạn số lần restart. Dừng chương trình.")
-                        os._exit(0)
-                    else:
-                        print("🔄 Khởi động lại workflow...")
-                        # Lưu restart count trước khi exit
-                        save_restart_count()
-                        # Trigger restart bằng cách exit với code đặc biệt
-                        os._exit(100)  # Exit code 100 để trigger restart
+                    print("🔄 Khởi động lại workflow...")
+                    # Lưu restart count trước khi exit
+                    save_restart_count()
+                    # Trigger restart bằng cách exit với code đặc biệt
+                    os._exit(100)  # Exit code 100 để trigger restart
             
             print(f"\n🔄 LẦN CẬP NHẬT THỨ {loop_count}")
             print(f"🕐 Thời gian: {now.strftime('%H:%M:%S %d/%m/%Y')}")
             print(f"📊 Thời gian chạy: {loop_count} phút")
             if _start_time:
                 runtime_minutes = (datetime.now() - _start_time).total_seconds() / 60
+                remaining_minutes = _max_runtime_minutes - runtime_minutes
                 print(f"⏰ Runtime: {runtime_minutes:.1f} phút / {_max_runtime_minutes} phút")
+                print(f"⏰ Thời gian còn lại trước restart: {remaining_minutes:.1f} phút")
             print("-" * 40)
             
             # Cập nhật giá cổ phiếu
