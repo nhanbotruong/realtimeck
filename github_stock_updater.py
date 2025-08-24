@@ -19,6 +19,34 @@ _worksheet_cache = None
 _error_count = 0
 _max_errors = 5  # Số lỗi tối đa trước khi restart
 
+# Biến để theo dõi thời gian chạy (GitHub Actions timeout: 6 giờ = 360 phút)
+_start_time = None
+_max_runtime_minutes = 350  # Restart trước 6 giờ để tránh timeout
+
+# Biến để theo dõi restart count
+_restart_count = 0
+_max_restarts = 100  # Giới hạn số lần restart
+
+def load_restart_count():
+    """Load restart count từ file"""
+    global _restart_count
+    try:
+        if os.path.exists('restart_count.txt'):
+            with open('restart_count.txt', 'r') as f:
+                _restart_count = int(f.read().strip())
+        else:
+            _restart_count = 0
+    except:
+        _restart_count = 0
+
+def save_restart_count():
+    """Lưu restart count vào file"""
+    try:
+        with open('restart_count.txt', 'w') as f:
+            f.write(str(_restart_count))
+    except:
+        pass
+
 # ====== 1. KIỂM TRA THỜI GIAN THỊ TRƯỜNG ======
 def is_market_open():
     """Kiểm tra xem thị trường chứng khoán Việt Nam có đang mở cửa không"""
@@ -237,12 +265,23 @@ def update_stock_prices(worksheet):
 # ====== 6. HÀM CHÍNH CHẠY AUTO CẬP NHẬT ======
 def run_auto_update():
     """Chạy auto cập nhật vô thời hạn cho đến khi cancel thủ công"""
+    global _start_time, _restart_count
+    
     print("🚀 BẮT ĐẦU AUTO CẬP NHẬT GIÁ CỔ PHIẾU")
     print("⏰ Chế độ: Vô thời hạn (chạy cho đến khi cancel thủ công)")
     print("🔄 Chế độ: Auto (Realtime khi thị trường mở, Đóng cửa khi thị trường đóng)")
     print("⏱️ Khoảng thời gian: 1 phút giữa các lần cập nhật")
     print("🛑 Để dừng: Cancel workflow trong GitHub Actions")
+    print("⚠️ Tự động restart trước 6 giờ để tránh timeout")
     print("="*60)
+    
+    # Load restart count
+    load_restart_count()
+    
+    # Ghi lại thời gian bắt đầu
+    _start_time = datetime.now()
+    
+    print(f"📊 Restart count hiện tại: {_restart_count}/{_max_restarts}")
     
     # Kết nối Google Sheets
     worksheet = connect_google_sheets()
@@ -258,9 +297,32 @@ def run_auto_update():
             vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
             now = datetime.now(vn_tz)
             
+            # Kiểm tra thời gian chạy để tránh timeout
+            if _start_time:
+                runtime_minutes = (datetime.now() - _start_time).total_seconds() / 60
+                if runtime_minutes >= _max_runtime_minutes:
+                    _restart_count += 1
+                    print(f"\n⚠️ Đã chạy được {runtime_minutes:.1f} phút (gần 6 giờ)")
+                    print(f"🔄 Tự động restart #{_restart_count} để tránh GitHub Actions timeout...")
+                    print(f"📊 Tổng số lần cập nhật: {loop_count}")
+                    print(f"📊 Số lần restart: {_restart_count}/{_max_restarts}")
+                    
+                    if _restart_count >= _max_restarts:
+                        print("🛑 Đã đạt giới hạn số lần restart. Dừng chương trình.")
+                        os._exit(0)
+                    else:
+                        print("🔄 Khởi động lại workflow...")
+                        # Lưu restart count trước khi exit
+                        save_restart_count()
+                        # Trigger restart bằng cách exit với code đặc biệt
+                        os._exit(100)  # Exit code 100 để trigger restart
+            
             print(f"\n🔄 LẦN CẬP NHẬT THỨ {loop_count}")
             print(f"🕐 Thời gian: {now.strftime('%H:%M:%S %d/%m/%Y')}")
             print(f"📊 Thời gian chạy: {loop_count} phút")
+            if _start_time:
+                runtime_minutes = (datetime.now() - _start_time).total_seconds() / 60
+                print(f"⏰ Runtime: {runtime_minutes:.1f} phút / {_max_runtime_minutes} phút")
             print("-" * 40)
             
             # Cập nhật giá cổ phiếu

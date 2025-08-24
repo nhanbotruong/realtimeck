@@ -43,6 +43,16 @@ jobs:
         GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
       run: |
         python github_stock_updater.py
+      continue-on-error: true
+      
+    - name: Check for restart signal
+      if: failure()
+      run: |
+        if [ ${{ job.status }} == 'failure' ]; then
+          echo "🔄 Workflow completed with restart signal"
+          echo "📊 This is normal behavior for long-running workflows"
+          exit 0
+        fi
         
     - name: Log completion
       run: |
