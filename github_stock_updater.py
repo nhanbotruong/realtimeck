@@ -12,6 +12,9 @@ import numpy as np
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1xuU1VzRtZtVlNE_GLzebROre4I5ZvwLnU3qGskY10BQ/edit?usp=sharing"
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
 
+# Cache cho Google Sheets client
+_worksheet_cache = None
+
 # ====== 1. KIỂM TRA THỜI GIAN THỊ TRƯỜNG ======
 def is_market_open():
     """Kiểm tra xem thị trường chứng khoán Việt Nam có đang mở cửa không"""
@@ -34,6 +37,18 @@ def is_market_open():
 def get_realtime_price(ticker_clean):
     """Lấy giá realtime của mã cổ phiếu"""
     try:
+        # Sử dụng API mới của vnstock với timeout ngắn
+        import requests
+        from requests.adapters import HTTPAdapter
+        from urllib3.util.retry import Retry
+        
+        # Tạo session với timeout ngắn
+        session = requests.Session()
+        retry = Retry(connect=1, backoff_factor=0.1)
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('http://', adapter)
+        session.mount('https://', adapter)
+        
         # Sử dụng API mới của vnstock
         stock_data = vnstock.stock_intraday_data(symbol=ticker_clean, page_size=1)
         if stock_data is not None and len(stock_data) > 0:
@@ -86,6 +101,12 @@ def get_closing_price(ticker_clean):
 # ====== 4. KẾT NỐI GOOGLE SHEETS ======
 def connect_google_sheets():
     """Kết nối đến Google Sheets sử dụng credentials từ biến môi trường"""
+    global _worksheet_cache
+    
+    # Sử dụng cache nếu đã có
+    if _worksheet_cache is not None:
+        return _worksheet_cache
+    
     try:
         # Lấy credentials từ biến môi trường
         credentials_json = os.getenv('GOOGLE_CREDENTIALS_JSON')
@@ -104,8 +125,16 @@ def connect_google_sheets():
         # Tạo credentials từ JSON
         creds = Credentials.from_service_account_info(credentials_dict, scopes=SCOPES)
         client = gspread.authorize(creds)
+        
+        # Thiết lập timeout cho Google Sheets API
+        client.timeout = 30  # 30 giây timeout
+        
         spreadsheet = client.open_by_url(SHEET_URL)
         worksheet = spreadsheet.worksheet("Data_CP")
+        
+        # Cache worksheet để tái sử dụng
+        _worksheet_cache = worksheet
+        
         print("✅ Kết nối Google Sheets thành công!")
         return worksheet
     except Exception as e:
@@ -132,36 +161,54 @@ def update_stock_prices(worksheet):
         prices_to_update = []
         success_count = 0
         
-        for ticker in tickers:
-            if not ticker:
-                prices_to_update.append([""])
-                continue
+        # Tối ưu hóa: xử lý batch để giảm thời gian
+        batch_size = 10  # Xử lý 10 mã một lần
+        for i in range(0, len(tickers), batch_size):
+            batch_tickers = tickers[i:i+batch_size]
             
-            ticker_clean = str(ticker).strip().upper()
-            
-            if mode == "realtime":
-                price, info = get_realtime_price(ticker_clean)
-            else:
-                price, info = get_closing_price(ticker_clean)
-            
-            # Đảm bảo giá trị là string hoặc number, không phải numpy types
-            if isinstance(price, (np.integer, np.floating)):
-                price = float(price)
-            elif price not in ['N/A', 'Lỗi', '']:
-                price = str(price)
-            
-            prices_to_update.append([price])
-            if price not in ['N/A', 'Lỗi', '']:
-                success_count += 1
-            
-            print(f"  - {ticker_clean}: {price} ({info})")
+            for ticker in batch_tickers:
+                if not ticker:
+                    prices_to_update.append([""])
+                    continue
+                
+                ticker_clean = str(ticker).strip().upper()
+                
+                if mode == "realtime":
+                    price, info = get_realtime_price(ticker_clean)
+                else:
+                    price, info = get_closing_price(ticker_clean)
+                
+                # Đảm bảo giá trị là string hoặc number, không phải numpy types
+                if isinstance(price, (np.integer, np.floating)):
+                    price = float(price)
+                elif price not in ['N/A', 'Lỗi', '']:
+                    price = str(price)
+                
+                prices_to_update.append([price])
+                if price not in ['N/A', 'Lỗi', '']:
+                    success_count += 1
+                
+                # Giảm logging để tăng tốc
+                if i % 20 == 0:  # Chỉ log mỗi 20 mã
+                    print(f"  - {ticker_clean}: {price} ({info})")
         
-        # Cập nhật Google Sheets - sử dụng API mới để tránh deprecation warnings
+        # Cập nhật Google Sheets - sử dụng batch update để tăng tốc
         if prices_to_update:
-            range_to_update = f"H2:H{len(prices_to_update) + 1}"
-            # Sử dụng API mới của gspread với named arguments
-            worksheet.update(values=prices_to_update, range_name=range_to_update)
-            print(f"\n✅ Cập nhật thành công {success_count}/{len(tickers)} mã!")
+            try:
+                # Sử dụng batch update để tăng tốc
+                range_to_update = f"H2:H{len(prices_to_update) + 1}"
+                worksheet.update(values=prices_to_update, range_name=range_to_update)
+                print(f"\n✅ Cập nhật thành công {success_count}/{len(tickers)} mã!")
+            except Exception as e:
+                print(f"⚠️ Lỗi khi cập nhật Google Sheets: {e}")
+                # Thử lại với phương pháp khác
+                try:
+                    for i, price in enumerate(prices_to_update, start=2):
+                        worksheet.update(f'H{i}', price)
+                    print(f"✅ Cập nhật thành công với phương pháp thay thế!")
+                except Exception as e2:
+                    print(f"❌ Không thể cập nhật Google Sheets: {e2}")
+                    return False
             
             # Thống kê
             success_rate = (success_count / len(tickers)) * 100 if tickers else 0
