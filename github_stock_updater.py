@@ -159,8 +159,8 @@ def update_stock_prices(worksheet):
         # Cập nhật Google Sheets - sử dụng API mới để tránh deprecation warnings
         if prices_to_update:
             range_to_update = f"H2:H{len(prices_to_update) + 1}"
-            # Sử dụng API mới của gspread
-            worksheet.update(range_to_update, prices_to_update)
+            # Sử dụng API mới của gspread với named arguments
+            worksheet.update(values=prices_to_update, range_name=range_to_update)
             print(f"\n✅ Cập nhật thành công {success_count}/{len(tickers)} mã!")
             
             # Thống kê
@@ -185,9 +185,9 @@ def update_stock_prices(worksheet):
 
 # ====== 6. HÀM CHÍNH CHẠY AUTO CẬP NHẬT ======
 def run_auto_update():
-    """Chạy auto cập nhật với interval 1 phút"""
-    print("🚀 BẮT ĐẦU AUTO CẬP NHẬT GIÁ CỔ PHIẾU")
-    print("⏰ Khoảng thời gian: 1 phút")
+    """Chạy auto cập nhật 1 lần duy nhất"""
+    print("🚀 BẮT ĐẦU CẬP NHẬT GIÁ CỔ PHIẾU")
+    print("⏰ Chế độ: Một lần cập nhật (GitHub Actions sẽ chạy mỗi 1 phút)")
     print("🔄 Chế độ: Auto (Realtime khi thị trường mở, Đóng cửa khi thị trường đóng)")
     print("="*60)
     
@@ -197,52 +197,32 @@ def run_auto_update():
         print("❌ Không thể kết nối Google Sheets. Thoát chương trình.")
         return
     
-    loop_count = 0
-    max_loops = 1440  # Tối đa 24 giờ (1440 phút)
-    
     try:
-        while loop_count < max_loops:
-            loop_count += 1
-            vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
-            now = datetime.now(vn_tz)
-            
-            print(f"\n🔄 LẦN CẬP NHẬT THỨ {loop_count}")
-            print(f"🕐 Thời gian: {now.strftime('%H:%M:%S %d/%m/%Y')}")
-            print("-" * 40)
-            
-            # Cập nhật giá cổ phiếu
-            success = update_stock_prices(worksheet)
-            
-            if not success:
-                print("⚠️ Cập nhật không thành công, thử lại sau...")
-            
-            print("=" * 60)
-            
-            # Tính thời gian chờ tiếp theo
-            next_update = now + timedelta(minutes=1)
-            print(f"⏰ Lần cập nhật tiếp theo: {next_update.strftime('%H:%M:%S')}")
-            
-            # Chờ 1 phút trước khi cập nhật tiếp
-            if loop_count < max_loops:
-                print("⏳ Đang chờ 1 phút...")
-                time_module.sleep(60)  # Chờ 60 giây
-            else:
-                print("🛑 Đã đạt giới hạn vòng lặp (24 giờ). Dừng chương trình.")
-                break
+        vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
+        now = datetime.now(vn_tz)
+        
+        print(f"🕐 Thời gian cập nhật: {now.strftime('%H:%M:%S %d/%m/%Y')}")
+        print("-" * 40)
+        
+        # Cập nhật giá cổ phiếu
+        success = update_stock_prices(worksheet)
+        
+        if success:
+            print("✅ Cập nhật hoàn tất thành công!")
+        else:
+            print("⚠️ Cập nhật không thành công.")
+        
+        print("=" * 60)
+        print("🏁 Kết thúc cập nhật - GitHub Actions sẽ chạy lại sau 1 phút")
                 
-    except KeyboardInterrupt:
-        print(f"\n🛑 ĐÃ DỪNG AUTO CẬP NHẬT")
-        print(f"📊 Tổng số lần cập nhật: {loop_count}")
     except Exception as e:
-        print(f"\n❌ Lỗi trong auto cập nhật: {e}")
-        print("🔄 Thử lại sau 1 phút...")
-        time_module.sleep(60)
-        run_auto_update()
+        print(f"\n❌ Lỗi trong cập nhật: {e}")
+        print("🏁 Kết thúc với lỗi")
 
 # ====== 7. HÀM CHÍNH ======
 if __name__ == "__main__":
     print("📊 GITHUB ACTIONS STOCK PRICE UPDATER")
-    print("🔄 Auto cập nhật giá cổ phiếu Việt Nam mỗi 1 phút")
+    print("🔄 Cập nhật giá cổ phiếu Việt Nam (GitHub Actions chạy mỗi 1 phút)")
     print("="*60)
     
     # Chạy auto cập nhật
