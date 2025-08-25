@@ -207,14 +207,14 @@ def connect_google_sheets():
         return _worksheet_cache
     
     try:
-        # Lấy credentials từ biến môi trường
+        # Lấy credentials từ biến môi trường (GitHub Actions)
         credentials_json = os.getenv('GOOGLE_CREDENTIALS_JSON')
         if not credentials_json:
-            # Thử đọc từ các file credentials có sẵn
+            # Thử đọc từ các file credentials có sẵn (Local development)
             credential_files = [
-                'google_credentials.json',
-                'create-462716-fb36b6cea72a.json',
-                'GOOGLE_CREDENTIALS_.json'
+                'GOOGLE_CREDENTIALS_.json',  # Ưu tiên file GitHub Actions
+                'google_credentials.json',   # File local development
+                'create-462716-fb36b6cea72a.json'  # Backup file
             ]
             
             for file_path in credential_files:
@@ -223,6 +223,8 @@ def connect_google_sheets():
                         with open(file_path, 'r') as f:
                             credentials_json = f.read()
                         print(f"✅ Đã tìm thấy credentials trong file: {file_path}")
+                        if file_path == 'GOOGLE_CREDENTIALS_.json':
+                            print("🔧 Sử dụng GitHub Actions credentials")
                         break
                     except Exception as e:
                         print(f"⚠️ Không thể đọc file {file_path}: {e}")

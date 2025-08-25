@@ -40,7 +40,7 @@ jobs:
     - name: Update Google Credentials
       run: |
         # Tạo file credentials từ biến môi trường
-        echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > google_credentials.json
+        echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > GOOGLE_CREDENTIALS_.json
         
     - name: Check workflow status
       run: |
