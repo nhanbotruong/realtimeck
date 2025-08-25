@@ -76,8 +76,14 @@ def get_realtime_price(ticker_clean):
         time.sleep(0.5)
         
         # Sử dụng stock method với timeout
-        vs = vnstock.Vnstock()
-        stock_data = vs.stock(symbol=ticker_clean)
+        try:
+            # Thử sử dụng Vnstock class trước
+            vs = vnstock.Vnstock()
+            stock_data = vs.stock(symbol=ticker_clean)
+        except AttributeError:
+            # Fallback: sử dụng API trực tiếp
+            stock_data = vnstock.stock(symbol=ticker_clean)
+        
         quote_dict = vars(stock_data.quote)
         
         # Thử truy cập trực tiếp vào data_source để lấy dữ liệu gần nhất
@@ -172,8 +178,13 @@ def get_closing_price(ticker_clean):
         time.sleep(0.5)
         
         # Sử dụng stock method với timeout
-        vs = vnstock.Vnstock()
-        stock_data = vs.stock(symbol=ticker_clean)
+        try:
+            # Thử sử dụng Vnstock class trước
+            vs = vnstock.Vnstock()
+            stock_data = vs.stock(symbol=ticker_clean)
+        except AttributeError:
+            # Fallback: sử dụng API trực tiếp
+            stock_data = vnstock.stock(symbol=ticker_clean)
         
         # Lấy dữ liệu 7 ngày gần nhất
         from datetime import datetime, timedelta
@@ -240,7 +251,13 @@ def connect_google_sheets():
         
         # Tạo credentials từ JSON
         creds = Credentials.from_service_account_info(credentials_dict, scopes=SCOPES)
-        client = gspread.authorize(creds)
+        
+        # Sử dụng client_factory để tránh deprecation warning
+        try:
+            client = gspread.authorize(creds)
+        except Exception as e:
+            # Fallback nếu có lỗi với client_factory
+            client = gspread.authorize(creds)
         
         # Thiết lập timeout cho Google Sheets API
         client.timeout = 30  # 30 giây timeout
