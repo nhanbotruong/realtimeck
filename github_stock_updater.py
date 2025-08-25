@@ -210,11 +210,25 @@ def connect_google_sheets():
         # Lấy credentials từ biến môi trường
         credentials_json = os.getenv('GOOGLE_CREDENTIALS_JSON')
         if not credentials_json:
-            # Thử đọc từ file nếu không có biến môi trường
-            if os.path.exists('google_credentials.json'):
-                with open('google_credentials.json', 'r') as f:
-                    credentials_json = f.read()
-            else:
+            # Thử đọc từ các file credentials có sẵn
+            credential_files = [
+                'google_credentials.json',
+                'create-462716-fb36b6cea72a.json',
+                'GOOGLE_CREDENTIALS_.json'
+            ]
+            
+            for file_path in credential_files:
+                if os.path.exists(file_path):
+                    try:
+                        with open(file_path, 'r') as f:
+                            credentials_json = f.read()
+                        print(f"✅ Đã tìm thấy credentials trong file: {file_path}")
+                        break
+                    except Exception as e:
+                        print(f"⚠️ Không thể đọc file {file_path}: {e}")
+                        continue
+            
+            if not credentials_json:
                 print("❌ Không tìm thấy Google credentials. Vui lòng cấu hình GOOGLE_CREDENTIALS_JSON.")
                 return None
         
@@ -289,12 +303,25 @@ def update_stock_prices(worksheet):
                 # Đảm bảo giá trị là string hoặc number, không phải numpy types
                 if isinstance(price, (np.integer, np.floating)):
                     price = float(price)
+                elif isinstance(price, (int, float)):
+                    price = float(price)
                 elif price not in ['N/A', 'Lỗi', '']:
-                    price = str(price)
+                    try:
+                        price = float(price)
+                    except (ValueError, TypeError):
+                        price = str(price)
                 
-                prices_to_update.append([price])
-                if price not in ['N/A', 'Lỗi', '']:
+                # Format giá trị để hiển thị đẹp hơn
+                if isinstance(price, float):
+                    # Làm tròn đến 2 chữ số thập phân
+                    price = round(price, 2)
+                
+                # Đảm bảo giá trị hợp lệ trước khi thêm vào list
+                if price not in ['N/A', 'Lỗi', '', None]:
+                    prices_to_update.append([price])
                     success_count += 1
+                else:
+                    prices_to_update.append([""])
                 
                 # Giảm logging để tăng tốc - chỉ log mỗi 50 mã và các mã quan trọng
                 if i % 50 == 0 or ticker_clean in ['VCB', 'HPG', 'VNM', 'FPT']:
@@ -305,14 +332,40 @@ def update_stock_prices(worksheet):
             try:
                 # Sử dụng batch update để tăng tốc
                 range_to_update = f"H2:H{len(prices_to_update) + 1}"
-                worksheet.update(values=prices_to_update, range_name=range_to_update)
+                
+                # Đảm bảo tất cả giá trị đều hợp lệ
+                valid_prices = []
+                for price_list in prices_to_update:
+                    price = price_list[0] if price_list else ""
+                    if price and price not in ['N/A', 'Lỗi', '', None]:
+                        valid_prices.append([price])
+                    else:
+                        valid_prices.append([""])
+                
+                worksheet.update(values=valid_prices, range_name=range_to_update)
                 print(f"\n✅ Cập nhật thành công {success_count}/{len(tickers)} mã!")
+                
+                # Kiểm tra xem dữ liệu đã được cập nhật chưa
+                try:
+                    # Đọc lại một vài giá trị để kiểm tra
+                    check_range = f"H2:H{min(5, len(valid_prices) + 1)}"
+                    updated_values = worksheet.get(check_range)
+                    print(f"🔍 Kiểm tra cập nhật: {len(updated_values)} giá trị đã được lưu")
+                except Exception as check_error:
+                    print(f"⚠️ Không thể kiểm tra dữ liệu đã cập nhật: {check_error}")
+                
             except Exception as e:
                 print(f"⚠️ Lỗi khi cập nhật Google Sheets: {e}")
+                print(f"🔍 Debug: Số lượng giá trị: {len(prices_to_update)}")
+                print(f"🔍 Debug: Giá trị đầu tiên: {prices_to_update[0] if prices_to_update else 'None'}")
+                
                 # Thử lại với phương pháp khác
                 try:
-                    for i, price in enumerate(prices_to_update, start=2):
-                        worksheet.update(f'H{i}', price)
+                    print("🔄 Thử phương pháp cập nhật từng ô...")
+                    for i, price_list in enumerate(prices_to_update, start=2):
+                        price = price_list[0] if price_list else ""
+                        if price and price not in ['N/A', 'Lỗi', '', None]:
+                            worksheet.update(f'H{i}', price)
                     print(f"✅ Cập nhật thành công với phương pháp thay thế!")
                 except Exception as e2:
                     print(f"❌ Không thể cập nhật Google Sheets: {e2}")
