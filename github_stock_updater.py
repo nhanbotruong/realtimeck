@@ -69,6 +69,7 @@ def is_market_open():
 def get_realtime_price(ticker_clean):
     """Lấy giá realtime của mã cổ phiếu"""
     import time
+    import signal
     
     try:
         # Thêm delay để tránh bị block
@@ -344,7 +345,8 @@ def update_stock_prices(worksheet):
                     else:
                         valid_prices.append([""])
                 
-                worksheet.update(values=valid_prices, range_name=range_to_update)
+                # Sử dụng named arguments để tránh deprecation warning
+                worksheet.update(range_name=range_to_update, values=valid_prices)
                 print(f"\n✅ Cập nhật thành công {success_count}/{len(tickers)} mã!")
                 
                 # Kiểm tra xem dữ liệu đã được cập nhật chưa
@@ -367,7 +369,8 @@ def update_stock_prices(worksheet):
                     for i, price_list in enumerate(prices_to_update, start=2):
                         price = price_list[0] if price_list else ""
                         if price and price not in ['N/A', 'Lỗi', '', None]:
-                            worksheet.update(f'H{i}', price)
+                            # Sử dụng named arguments để tránh deprecation warning
+                            worksheet.update(range_name=f'H{i}', values=[[price]])
                     print(f"✅ Cập nhật thành công với phương pháp thay thế!")
                 except Exception as e2:
                     print(f"❌ Không thể cập nhật Google Sheets: {e2}")
@@ -498,6 +501,7 @@ def run_auto_update():
             # Thêm delay ngẫu nhiên để tránh bị block
             import random
             random_delay = random.uniform(55, 65)  # Delay 55-65 giây
+            print(f"⏳ Đang chờ {random_delay:.1f} giây...")
             time_module.sleep(random_delay)
                 
     except KeyboardInterrupt:
@@ -517,5 +521,9 @@ if __name__ == "__main__":
     print("🔄 Auto cập nhật giá cổ phiếu Việt Nam liên tục (chạy cho đến khi cancel)")
     print("="*60)
     
-    # Chạy auto cập nhật
-    run_auto_update()
+    try:
+        # Chạy auto cập nhật
+        run_auto_update()
+    except Exception as e:
+        print(f"❌ Lỗi trong main: {e}")
+        os._exit(1)
