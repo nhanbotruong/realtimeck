@@ -26,11 +26,80 @@ def is_market_open():
 # ====== 2. LẤY GIÁ REALTIME ======
 def get_realtime_price(vs, ticker_clean):
     """Lấy giá realtime của mã cổ phiếu"""
+    import time
+    
     try:
+        # Thêm delay để tránh bị block
+        time.sleep(0.5)
+        
+        # Sử dụng stock method với timeout
         stock_data = vs.stock(symbol=ticker_clean)
         quote_dict = vars(stock_data.quote)
-        last_price = quote_dict.get("lastPrice") or quote_dict.get("close", "N/A")
-        return last_price, "realtime"
+        
+        # Debug: In ra tất cả các key có sẵn (chỉ cho 3 mã đầu tiên)
+        if ticker_clean in ['GEG', 'NVL', 'DCM']:
+            print(f"🔍 Debug {ticker_clean}: Các key có sẵn: {list(quote_dict.keys())}")
+        
+        # Thử truy cập trực tiếp vào data_source để lấy dữ liệu gần nhất
+        try:
+            if hasattr(stock_data.quote, 'data_source') and stock_data.quote.data_source is not None:
+                # Lấy dữ liệu gần nhất (có thể là realtime)
+                from datetime import datetime, timedelta
+                start_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+                historical_data = stock_data.quote.data_source.history(start_date)
+                
+                if historical_data is not None and len(historical_data) > 0:
+                    latest_data = historical_data.iloc[-1]
+                    
+                    # Kiểm tra xem dữ liệu có phải là hôm nay không
+                    trading_date = latest_data.get('time', '')
+                    today = datetime.now().strftime('%Y-%m-%d')
+                    
+                    # Kiểm tra thời gian hiện tại để xác định loại dữ liệu
+                    vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
+                    now = datetime.now(vn_tz)
+                    current_time = now.time()
+                    
+                    # Kiểm tra xem có phải ngày hôm nay không (chỉ so sánh phần ngày)
+                    trading_date_only = str(trading_date).split(' ')[0] if trading_date else ''
+                    
+                    # Kiểm tra xem có phải ngày hôm nay không
+                    if trading_date_only == today:
+                        # Kiểm tra thị trường có đang mở không
+                        if 9 <= current_time.hour < 15:
+                            if 'lastPrice' in latest_data and latest_data['lastPrice'] is not None:
+                                return latest_data['lastPrice'], "realtime (today lastPrice - market open)"
+                            elif 'close' in latest_data and latest_data['close'] is not None:
+                                return latest_data['close'], "realtime (today close - market open)"
+                        else:
+                            if 'lastPrice' in latest_data and latest_data['lastPrice'] is not None:
+                                return latest_data['lastPrice'], "realtime (today close - market closed)"
+                            elif 'close' in latest_data and latest_data['close'] is not None:
+                                return latest_data['close'], "realtime (today close - market closed)"
+                    else:
+                        if 'lastPrice' in latest_data and latest_data['lastPrice'] is not None:
+                            return latest_data['lastPrice'], "realtime (latest lastPrice)"
+                        elif 'close' in latest_data and latest_data['close'] is not None:
+                            return latest_data['close'], "realtime (latest close)"
+        except Exception as hist_error:
+            if ticker_clean in ['GEG', 'NVL', 'DCM']:
+                print(f"⚠️  Không thể lấy dữ liệu từ data_source cho {ticker_clean}: {hist_error}")
+        
+        # Thử các key khác trong quote_dict
+        price = None
+        price_source = "unknown"
+        
+        for key in ['lastPrice', 'close', 'price', 'currentPrice', 'last_price']:
+            if key in quote_dict and quote_dict[key] is not None:
+                price = quote_dict[key]
+                price_source = key
+                break
+        
+        if price is not None:
+            return price, f"realtime ({price_source})"
+        else:
+            return "N/A", "không có dữ liệu realtime"
+            
     except Exception as e:
         return "Lỗi", f"Lỗi realtime: {e}"
 

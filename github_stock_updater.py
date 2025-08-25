@@ -68,61 +68,128 @@ def is_market_open():
 # ====== 2. LẤY GIÁ REALTIME ======
 def get_realtime_price(ticker_clean):
     """Lấy giá realtime của mã cổ phiếu"""
+    import time
+    
     try:
-        # Sử dụng API mới của vnstock với timeout ngắn
-        import requests
-        from requests.adapters import HTTPAdapter
-        from urllib3.util.retry import Retry
+        # Thêm delay để tránh bị block
+        time.sleep(0.5)
         
-        # Tạo session với timeout ngắn
-        session = requests.Session()
-        retry = Retry(connect=1, backoff_factor=0.1)
-        adapter = HTTPAdapter(max_retries=retry)
-        session.mount('http://', adapter)
-        session.mount('https://', adapter)
+        # Sử dụng stock method với timeout
+        vs = vnstock.Vnstock()
+        stock_data = vs.stock(symbol=ticker_clean)
+        quote_dict = vars(stock_data.quote)
         
-        # Sử dụng API mới của vnstock
-        stock_data = vnstock.stock_intraday_data(symbol=ticker_clean, page_size=1)
-        if stock_data is not None and len(stock_data) > 0:
-            last_price = stock_data.iloc[0]['close']
-            # Chuyển đổi numpy types thành Python native types
-            if isinstance(last_price, (np.integer, np.floating)):
-                last_price = float(last_price)
-            # Chia cho 1000 để hiển thị đúng đơn vị (VND)
-            if isinstance(last_price, (int, float)) and last_price > 1000:
-                last_price = last_price / 1000
-            return last_price, "realtime"
+        # Thử truy cập trực tiếp vào data_source để lấy dữ liệu gần nhất
+        try:
+            if hasattr(stock_data.quote, 'data_source') and stock_data.quote.data_source is not None:
+                # Lấy dữ liệu gần nhất (có thể là realtime)
+                from datetime import datetime, timedelta
+                start_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+                historical_data = stock_data.quote.data_source.history(start_date)
+                
+                if historical_data is not None and len(historical_data) > 0:
+                    latest_data = historical_data.iloc[-1]
+                    
+                    # Kiểm tra xem dữ liệu có phải là hôm nay không
+                    trading_date = latest_data.get('time', '')
+                    today = datetime.now().strftime('%Y-%m-%d')
+                    
+                    # Kiểm tra thời gian hiện tại để xác định loại dữ liệu
+                    vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
+                    now = datetime.now(vn_tz)
+                    current_time = now.time()
+                    
+                    # Kiểm tra xem có phải ngày hôm nay không (chỉ so sánh phần ngày)
+                    trading_date_only = str(trading_date).split(' ')[0] if trading_date else ''
+                    
+                    # Kiểm tra xem có phải ngày hôm nay không
+                    if trading_date_only == today:
+                        # Kiểm tra thị trường có đang mở không
+                        if 9 <= current_time.hour < 15:
+                            if 'lastPrice' in latest_data and latest_data['lastPrice'] is not None:
+                                price = latest_data['lastPrice']
+                                if isinstance(price, (np.integer, np.floating)):
+                                    price = float(price)
+                                return price, "realtime (today lastPrice - market open)"
+                            elif 'close' in latest_data and latest_data['close'] is not None:
+                                price = latest_data['close']
+                                if isinstance(price, (np.integer, np.floating)):
+                                    price = float(price)
+                                return price, "realtime (today close - market open)"
+                        else:
+                            if 'lastPrice' in latest_data and latest_data['lastPrice'] is not None:
+                                price = latest_data['lastPrice']
+                                if isinstance(price, (np.integer, np.floating)):
+                                    price = float(price)
+                                return price, "realtime (today close - market closed)"
+                            elif 'close' in latest_data and latest_data['close'] is not None:
+                                price = latest_data['close']
+                                if isinstance(price, (np.integer, np.floating)):
+                                    price = float(price)
+                                return price, "realtime (today close - market closed)"
+                    else:
+                        if 'lastPrice' in latest_data and latest_data['lastPrice'] is not None:
+                            price = latest_data['lastPrice']
+                            if isinstance(price, (np.integer, np.floating)):
+                                price = float(price)
+                            return price, "realtime (latest lastPrice)"
+                        elif 'close' in latest_data and latest_data['close'] is not None:
+                            price = latest_data['close']
+                            if isinstance(price, (np.integer, np.floating)):
+                                price = float(price)
+                            return price, "realtime (latest close)"
+        except Exception as hist_error:
+            pass
+        
+        # Thử các key khác trong quote_dict
+        price = None
+        price_source = "unknown"
+        
+        for key in ['lastPrice', 'close', 'price', 'currentPrice', 'last_price']:
+            if key in quote_dict and quote_dict[key] is not None:
+                price = quote_dict[key]
+                price_source = key
+                break
+        
+        if price is not None:
+            if isinstance(price, (np.integer, np.floating)):
+                price = float(price)
+            return price, f"realtime ({price_source})"
         else:
             return "N/A", "không có dữ liệu realtime"
+            
     except Exception as e:
         return "Lỗi", f"Lỗi realtime: {e}"
 
 # ====== 3. LẤY GIÁ ĐÓNG CỬA ======
 def get_closing_price(ticker_clean):
     """Lấy giá đóng cửa gần nhất của mã cổ phiếu"""
+    import time
+    
     try:
-        # Sử dụng API mới của vnstock
+        # Thêm delay để tránh bị block
+        time.sleep(0.5)
+        
+        # Sử dụng stock method với timeout
+        vs = vnstock.Vnstock()
+        stock_data = vs.stock(symbol=ticker_clean)
+        
+        # Lấy dữ liệu 7 ngày gần nhất
         from datetime import datetime, timedelta
         start_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
-        end_date = datetime.now().strftime('%Y-%m-%d')
+        historical_data = stock_data.quote.data_source.history(start_date)
         
-        stock_data = vnstock.stock_historical_data(symbol=ticker_clean, start_date=start_date, end_date=end_date)
-        
-        if stock_data is not None and len(stock_data) > 0:
+        if historical_data is not None and len(historical_data) > 0:
             # Lấy giá đóng cửa của ngày giao dịch gần nhất
-            latest_data = stock_data.iloc[-1]  # Lấy dòng cuối cùng
-            close_price = latest_data['close']
-            trading_date = latest_data['time']
+            latest_data = historical_data.iloc[-1]  # Lấy dòng cuối cùng
+            close_price = latest_data.get('close', 'N/A')
+            trading_date = latest_data.get('time', 'N/A')
             
             # Chuyển đổi numpy types thành Python native types
             if isinstance(close_price, (np.integer, np.floating)):
                 close_price = float(close_price)
             if isinstance(trading_date, np.datetime64):
                 trading_date = str(trading_date)
-            
-            # Chia cho 1000 để hiển thị đúng đơn vị (VND)
-            if isinstance(close_price, (int, float)) and close_price > 1000:
-                close_price = close_price / 1000
             
             return close_price, f"đóng cửa ({trading_date})"
         else:
@@ -179,6 +246,10 @@ def update_stock_prices(worksheet):
     try:
         # Lấy danh sách mã cổ phiếu từ cột C
         tickers = worksheet.col_values(3)[1:]  # Bỏ qua header
+        
+        # Lọc bỏ các mã rỗng
+        tickers = [ticker for ticker in tickers if ticker and str(ticker).strip()]
+        
         print(f"🔍 Tìm thấy {len(tickers)} mã cổ phiếu để cập nhật.")
         
         # Xác định chế độ dựa trên thời gian thị trường
@@ -194,7 +265,7 @@ def update_stock_prices(worksheet):
         success_count = 0
         
         # Tối ưu hóa: xử lý batch để giảm thời gian
-        batch_size = 10  # Xử lý 10 mã một lần
+        batch_size = 5  # Giảm batch size để tránh timeout
         for i in range(0, len(tickers), batch_size):
             batch_tickers = tickers[i:i+batch_size]
             
@@ -204,6 +275,11 @@ def update_stock_prices(worksheet):
                     continue
                 
                 ticker_clean = str(ticker).strip().upper()
+                
+                # Bỏ qua các mã không hợp lệ
+                if len(ticker_clean) < 2 or len(ticker_clean) > 5:
+                    prices_to_update.append([""])
+                    continue
                 
                 if mode == "realtime":
                     price, info = get_realtime_price(ticker_clean)
@@ -220,8 +296,8 @@ def update_stock_prices(worksheet):
                 if price not in ['N/A', 'Lỗi', '']:
                     success_count += 1
                 
-                # Giảm logging để tăng tốc
-                if i % 20 == 0:  # Chỉ log mỗi 20 mã
+                # Giảm logging để tăng tốc - chỉ log mỗi 50 mã và các mã quan trọng
+                if i % 50 == 0 or ticker_clean in ['VCB', 'HPG', 'VNM', 'FPT']:
                     print(f"  - {ticker_clean}: {price} ({info})")
         
         # Cập nhật Google Sheets - sử dụng batch update để tăng tốc
@@ -359,7 +435,11 @@ def run_auto_update():
             
             # Chờ 1 phút trước khi cập nhật tiếp
             print("⏳ Đang chờ 1 phút...")
-            time_module.sleep(60)  # Chờ 60 giây (1 phút)
+            
+            # Thêm delay ngẫu nhiên để tránh bị block
+            import random
+            random_delay = random.uniform(55, 65)  # Delay 55-65 giây
+            time_module.sleep(random_delay)
                 
     except KeyboardInterrupt:
         print(f"\n🛑 ĐÃ DỪNG AUTO CẬP NHẬT (Cancel thủ công)")

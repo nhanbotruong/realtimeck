@@ -97,6 +97,15 @@
             to { transform: translateX(0); opacity: 1; }
         }
         
+        /* Multiple values display */
+        .multiple-values {
+            line-height: 1.4;
+            white-space: pre-line;
+        }
+        
+        .multiple-values br {
+            margin-bottom: 0.25rem;
+        }
 
     </style>
 </head>
@@ -106,7 +115,7 @@
         
         <header class="text-center mb-8">
             <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">Danh mục Cổ phiếu (Online)</h1>
-            <p class="text-gray-600 mt-2">Giá cổ phiếu sẽ chậm hơn 20p so với giá thực tế.</p>
+            <p class="text-gray-600 mt-2">Giá cổ phiếu sẽ chậm hơn 1p so với giá thực tế.</p>
         </header>
 
         <!-- Dashboard Tổng quan -->
@@ -270,7 +279,7 @@
                     </div>
                     <div class="ml-3">
                         <p class="text-sm text-blue-700">
-                            <strong>Tính năng tự động:</strong> Nhập <strong>Giá Mua</strong> và <strong>Giá Cắt Lỗ</strong>, hệ thống sẽ tự động tính <strong>Tỷ lệ R/R</strong> và <strong>Giá Chốt Lời</strong> với tỷ lệ mặc định 2.5:1
+                            <strong>Tính năng tự động:</strong> Nhập <strong>Giá Mua</strong> và <strong>Giá Cắt Lỗ</strong>, hệ thống sẽ tự động tính <strong>Tỷ lệ R/R</strong> và <strong>Giá Chốt Lời</strong> với tỷ lệ mặc định 2.5:1. <strong>Hỗ trợ nhiều giá trị:</strong> Sử dụng dấu <strong>;</strong> để phân tách nhiều giá chốt lời, giá cắt lỗ hoặc tỷ lệ R/R (VD: 35,000; 40,000; 45,000). <strong>💡 Mẹo:</strong> Mở Developer Tools (F12) để xem debug log.
                         </p>
                     </div>
                 </div>
@@ -289,16 +298,16 @@
                     <input type="text" id="buy-price" placeholder="28,500" required class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div>
-                    <label for="stop-loss" class="block text-sm font-medium text-gray-700 mb-1 h-10">Giá Cắt Lỗ <br><span class="text-xs text-gray-500 font-normal">(Tùy chọn)</span></label>
-                    <input type="text" id="stop-loss" placeholder="25,000" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <label for="stop-loss" class="block text-sm font-medium text-gray-700 mb-1 h-10">Giá Cắt Lỗ <br><span class="text-xs text-gray-500 font-normal">(Tùy chọn, dùng ; để phân tách)</span></label>
+                    <input type="text" id="stop-loss" placeholder="25,000; 24,500; 24,000" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                  <div>
-                    <label for="rr-ratio" class="block text-sm font-medium text-gray-700 mb-1 h-10">Tỷ lệ R/R <br><span class="text-xs text-gray-500 font-normal">(Tự động tính)</span></label>
-                    <input type="text" id="rr-ratio" placeholder="2,5" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <label for="rr-ratio" class="block text-sm font-medium text-gray-700 mb-1 h-10">Tỷ lệ R/R <br><span class="text-xs text-gray-500 font-normal">(Tự động tính, dùng ; để phân tách)</span></label>
+                    <input type="text" id="rr-ratio" placeholder="2,5; 3,0; 4,0" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div>
-                    <label for="target-price" class="block text-sm font-medium text-gray-700 mb-1 h-10">Giá Chốt Lời <br><span class="text-xs text-gray-500 font-normal">(Tự động tính)</span></label>
-                    <input type="text" id="target-price" placeholder="35,000" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <label for="target-price" class="block text-sm font-medium text-gray-700 mb-1 h-10">Giá Chốt Lời <br><span class="text-xs text-gray-500 font-normal">(Tự động tính, dùng ; để phân tách)</span></label>
+                    <input type="text" id="target-price" placeholder="35,000; 40,000; 45,000" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                  <div>
                     <label for="market-price" class="block text-sm font-medium text-gray-700 mb-1 h-10">Giá TT <br><span class="text-xs text-gray-500 font-normal">(Tùy chọn)</span></label>
@@ -425,6 +434,11 @@
         <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-xl bg-white">
             <div class="mt-3 text-center">
                 <h3 class="text-2xl leading-6 font-bold text-gray-900 mb-4">Chỉnh sửa thông tin</h3>
+                <div class="bg-blue-50 border-l-4 border-blue-400 p-3 mb-4 text-left">
+                    <p class="text-sm text-blue-700">
+                        💡 <strong>Mẹo:</strong> Sử dụng dấu <strong>;</strong> để nhập nhiều giá trị. Nhấn nút "Tính toán R/R" để tự động tính từ giá chốt lời, hoặc "Tính toán Giá Chốt Lời" để tính từ R/R.
+                    </p>
+                </div>
                 <form id="edit-form">
                     <input type="hidden" id="edit-id">
                     <div class="grid grid-cols-2 gap-4 text-left">
@@ -445,16 +459,26 @@
                             <input type="text" id="edit-market-price" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                         </div>
                          <div>
-                            <label for="edit-stop-loss" class="block text-sm font-medium text-gray-700 mb-1">Giá Cắt Lỗ</label>
+                            <label for="edit-stop-loss" class="block text-sm font-medium text-gray-700 mb-1">Giá Cắt Lỗ (dùng ; để phân tách)</label>
                             <input type="text" id="edit-stop-loss" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                         </div>
                         <div>
-                            <label for="edit-rr-ratio" class="block text-sm font-medium text-gray-700 mb-1">Tỷ lệ R/R</label>
+                            <label for="edit-rr-ratio" class="block text-sm font-medium text-gray-700 mb-1">Tỷ lệ R/R (dùng ; để phân tách)</label>
                             <input type="text" id="edit-rr-ratio" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                         </div>
                         <div class="col-span-2">
-                            <label for="edit-target-price" class="block text-sm font-medium text-gray-700 mb-1">Giá Chốt Lời</label>
+                            <label for="edit-target-price" class="block text-sm font-medium text-gray-700 mb-1">Giá Chốt Lời (dùng ; để phân tách)</label>
                             <input type="text" id="edit-target-price" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="col-span-2">
+                            <button type="button" id="calculate-rr-btn" class="w-full bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-sm transition-colors text-sm">
+                                🔄 Tính toán R/R từ Giá Chốt Lời
+                            </button>
+                        </div>
+                        <div class="col-span-2">
+                            <button type="button" id="calculate-target-btn" class="w-full bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 shadow-sm transition-colors text-sm">
+                                🎯 Tính toán Giá Chốt Lời từ R/R
+                            </button>
                         </div>
                     </div>
                     <div class="items-center px-4 py-3 mt-6 flex justify-end gap-3 bg-gray-50 -mx-5 -mb-5 rounded-b-xl">
@@ -543,11 +567,63 @@
             // --- Functions ---
             const parsePrice = (value) => parseFloat(value.toString().replace(',', '.')) || 0;
 
+            // Hàm tiện ích để xử lý nhiều giá trị được phân tách bằng dấu ;
+            const parseMultiplePrices = (value) => {
+                if (!value || typeof value !== 'string') return [];
+                return value.split(';')
+                    .map(item => item.trim())
+                    .filter(item => item.length > 0)
+                    .map(item => parseFloat(item.replace(',', '.')) || 0)
+                    .filter(price => price > 0);
+            };
+
+            // Hàm hiển thị nhiều giá trị trong bảng (xuống dòng thay vì dấu ;)
+            const formatMultipleValues = (value) => {
+                if (!value || typeof value !== 'string') return '';
+                
+                // Debug
+                console.log('formatMultipleValues input:', value);
+                
+                const values = value.split(';')
+                    .map(item => item.trim())
+                    .filter(item => item.length > 0);
+                
+                console.log('Parsed values:', values);
+                
+                if (values.length === 0) return '';
+                if (values.length === 1) {
+                    const numVal = parseFloat(values[0].replace(',', '.'));
+                    const result = numVal > 0 ? numVal.toFixed(2) : values[0];
+                    console.log('Single value result:', result);
+                    return result;
+                }
+                
+                const formattedValues = values.map(val => {
+                    const numVal = parseFloat(val.replace(',', '.'));
+                    return numVal > 0 ? numVal.toFixed(2) : val;
+                });
+                
+                const result = `<div class="multiple-values">${formattedValues.join('<br>')}</div>`;
+                console.log('Multiple values result:', result);
+                return result;
+            };
+
+            // Hàm lấy giá trị đầu tiên để tính toán
+            const getFirstPrice = (value) => {
+                const prices = parseMultiplePrices(value);
+                return prices.length > 0 ? prices[0] : 0;
+            };
+
             // Cache cho các tính toán phức tạp
             const calculationCache = new Map();
 
+            // Hàm xóa cache để đảm bảo tính toán lại
+            const clearCalculationCache = () => {
+                calculationCache.clear();
+            };
+
             const calculateStockMetrics = (stock) => {
-                const cacheKey = `${stock.id}-${stock.buyPrice}-${stock.marketPrice}-${stock.targetPrice}-${stock.stopLoss}`;
+                const cacheKey = `${stock.id}-${stock.buyPrice}-${stock.marketPrice}-${stock.targetPrice}-${stock.stopLoss}-${stock.rrRatio}`;
                 
                 if (calculationCache.has(cacheKey)) {
                     return calculationCache.get(cacheKey);
@@ -555,17 +631,23 @@
                 
                 const marketPrice = parsePrice(stock.marketPrice);
                 const buyPrice = parsePrice(stock.buyPrice);
-                const targetPrice = parsePrice(stock.targetPrice);
-                const stopLoss = parsePrice(stock.stopLoss);
+                const targetPrices = parseMultiplePrices(stock.targetPrice);
+                const stopLosses = parseMultiplePrices(stock.stopLoss);
+                const rrRatios = parseMultiplePrices(stock.rrRatio);
                 
                 const metrics = {
                     pnl: marketPrice > 0 && buyPrice > 0 ? ((marketPrice - buyPrice) / buyPrice) * 100 : 0,
                     rrRatio: 0,
-                    risk: buyPrice - stopLoss,
-                    reward: targetPrice - buyPrice
+                    risk: buyPrice - (stopLosses.length > 0 ? stopLosses[0] : 0),
+                    reward: targetPrices.length > 0 ? targetPrices[0] - buyPrice : 0
                 };
                 
-                if (metrics.risk > 0 && metrics.reward > 0) {
+                // Tính R/R từ dữ liệu có sẵn
+                if (rrRatios.length > 0) {
+                    // Nếu có R/R được lưu, sử dụng giá trị đầu tiên
+                    metrics.rrRatio = rrRatios[0];
+                } else if (metrics.risk > 0 && metrics.reward > 0) {
+                    // Nếu không có R/R, tính từ giá chốt lời đầu tiên
                     metrics.rrRatio = metrics.reward / metrics.risk;
                 }
                 
@@ -818,6 +900,9 @@
                 } else {
                     emptyState.classList.add('hidden');
                     filteredStocks.forEach(stock => {
+                        // Validate và sửa dữ liệu R/R nếu cần
+                        stock = validateRRData(stock);
+                        
                         const marketPrice = parsePrice(stock.marketPrice);
                         const buyPrice = parsePrice(stock.buyPrice);
                         const targetPrice = parsePrice(stock.targetPrice);
@@ -829,6 +914,10 @@
 
                         const stockItem = document.createElement('tr');
                         stockItem.className = 'stock-item lg:table-row bg-white border-b hover:bg-gray-50 fade-in';
+                        
+                        // Debug: Kiểm tra dữ liệu R/R
+                        console.log('Stock RR data:', stock.rrRatio, 'Type:', typeof stock.rrRatio);
+                        
                         stockItem.innerHTML = `
                             <td class="stock-cell lg:table-cell px-6 py-4 font-medium text-gray-900" data-label="Mã KH">${(stock.customerId || '').toUpperCase()}</td>
                             <td class="stock-cell lg:table-cell px-6 py-4 font-medium" data-label="Mã CP">${(stock.ticker || '').toUpperCase()}</td>
@@ -836,9 +925,9 @@
                             <td class="stock-cell lg:table-cell px-6 py-4" data-label="Giá Mua">${buyPrice.toFixed(3)}</td>
                             <td class="stock-cell lg:table-cell px-6 py-4 font-bold" data-label="Giá TT">${marketPrice > 0 ? marketPrice.toFixed(3) : 'N/A'}</td>
                             <td class="stock-cell lg:table-cell px-6 py-4 font-semibold ${pnlColor}" data-label="Lãi/Lỗ">${marketPrice > 0 ? pnlSign + metrics.pnl.toFixed(2) + '%' : 'N/A'}</td>
-                            <td class="stock-cell lg:table-cell px-6 py-4 text-green-600 font-semibold" data-label="Giá Chốt Lời">${targetPrice > 0 ? targetPrice.toFixed(3) : ''}</td>
-                            <td class="stock-cell lg:table-cell px-6 py-4 text-red-600 font-semibold" data-label="Giá Cắt Lỗ">${stopLoss > 0 ? stopLoss.toFixed(3) : ''}</td>
-                            <td class="stock-cell lg:table-cell px-6 py-4 font-bold" data-label="R/R">${metrics.rrRatio > 0 ? metrics.rrRatio.toFixed(2) : ''}</td>
+                            <td class="stock-cell lg:table-cell px-6 py-4 text-green-600 font-semibold" data-label="Giá Chốt Lời">${formatMultipleValues(stock.targetPrice)}</td>
+                            <td class="stock-cell lg:table-cell px-6 py-4 text-red-600 font-semibold" data-label="Giá Cắt Lỗ">${formatMultipleValues(stock.stopLoss)}</td>
+                            <td class="stock-cell lg:table-cell px-6 py-4 font-bold" data-label="R/R">${formatMultipleValues(stock.rrRatio) || (metrics.rrRatio > 0 ? metrics.rrRatio.toFixed(2) : '')}</td>
                             <td class="stock-cell lg:table-cell px-6 py-4 text-center" data-label="Hành động">
                                 <div class="flex items-center justify-center gap-2">
                                     <button class="edit-btn text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors" data-id="${stock.id}" title="Chỉnh sửa">
@@ -883,9 +972,16 @@
                 document.getElementById('edit-ticker').value = stock.ticker;
                 document.getElementById('edit-buy-price').value = (stock.buyPrice || '').toString().replace('.', ',');
                 document.getElementById('edit-market-price').value = (stock.marketPrice || '').toString().replace('.', ',');
-                document.getElementById('edit-target-price').value = (stock.targetPrice || '').toString().replace('.', ',');
-                document.getElementById('edit-stop-loss').value = (stock.stopLoss || '').toString().replace('.', ',');
-                document.getElementById('edit-rr-ratio').value = (stock.rrRatio || '').toString().replace('.', ',');
+                
+                // Xử lý hiển thị nhiều giá trị với dấu ;
+                const formatForEdit = (value) => {
+                    if (!value) return '';
+                    return value.toString().replace(/\./g, ',');
+                };
+                
+                document.getElementById('edit-target-price').value = formatForEdit(stock.targetPrice);
+                document.getElementById('edit-stop-loss').value = formatForEdit(stock.stopLoss);
+                document.getElementById('edit-rr-ratio').value = formatForEdit(stock.rrRatio);
                 editModal.classList.remove('hidden');
             };
             
@@ -906,45 +1002,59 @@
 
                 const calculate = (event) => {
                     const buyPrice = parsePrice(buyPriceEl.value);
-                    const targetPrice = parsePrice(targetPriceEl.value);
-                    const stopLoss = parsePrice(stopLossEl.value);
-                    const rrRatio = parsePrice(rrRatioEl.value);
+                    const targetPrices = parseMultiplePrices(targetPriceEl.value);
+                    const stopLosses = parseMultiplePrices(stopLossEl.value);
+                    const rrRatios = parseMultiplePrices(rrRatioEl.value);
                     
                     const changedEl = event.target;
                     
-
-
                     // Kiểm tra điều kiện cơ bản
-                    if (buyPrice > 0 && stopLoss > 0 && buyPrice > stopLoss) {
-                        const risk = buyPrice - stopLoss;
+                    if (buyPrice > 0 && stopLosses.length > 0 && buyPrice > stopLosses[0]) {
+                        const risk = buyPrice - stopLosses[0];
 
                         // Nếu thay đổi tỉ lệ R/R, tính giá chốt lời
-                        if (changedEl === rrRatioEl && rrRatio > 0) {
-                            const reward = risk * rrRatio;
-                            const newTargetPrice = buyPrice + reward;
-                            targetPriceEl.value = newTargetPrice.toFixed(3).replace('.', ',');
+                        if (changedEl === rrRatioEl && rrRatios.length > 0) {
+                            const newTargetPrices = rrRatios.map(rr => {
+                                const reward = risk * rr;
+                                return buyPrice + reward;
+                            });
+                            targetPriceEl.value = newTargetPrices.map(price => price.toFixed(3).replace('.', ',')).join('; ');
                         } 
                         // Nếu thay đổi giá chốt lời, tính tỉ lệ R/R
-                        else if (changedEl === targetPriceEl && targetPrice > buyPrice) {
-                            const reward = targetPrice - buyPrice;
-                            if (risk > 0) {
-                                rrRatioEl.value = (reward / risk).toFixed(2).replace('.', ',');
+                        else if (changedEl === targetPriceEl && targetPrices.length > 0) {
+                            const newRrRatios = targetPrices.map(targetPrice => {
+                                if (targetPrice > buyPrice && risk > 0) {
+                                    const reward = targetPrice - buyPrice;
+                                    return (reward / risk).toFixed(2);
+                                }
+                                return '';
+                            }).filter(rr => rr !== '');
+                            if (newRrRatios.length > 0) {
+                                rrRatioEl.value = newRrRatios.map(rr => rr.replace('.', ',')).join('; ');
                             }
                         }
                         // Nếu thay đổi giá mua hoặc giá cắt lỗ
                         else if (changedEl === buyPriceEl || changedEl === stopLossEl) {
                             // Nếu có giá chốt lời, tính lại tỉ lệ R/R
-                            if (targetPrice > buyPrice) {
-                                const reward = targetPrice - buyPrice;
-                                if (risk > 0) {
-                                    rrRatioEl.value = (reward / risk).toFixed(2).replace('.', ',');
+                            if (targetPrices.length > 0) {
+                                const newRrRatios = targetPrices.map(targetPrice => {
+                                    if (targetPrice > buyPrice && risk > 0) {
+                                        const reward = targetPrice - buyPrice;
+                                        return (reward / risk).toFixed(2);
+                                    }
+                                    return '';
+                                }).filter(rr => rr !== '');
+                                if (newRrRatios.length > 0) {
+                                    rrRatioEl.value = newRrRatios.map(rr => rr.replace('.', ',')).join('; ');
                                 }
                             }
                             // Nếu có tỉ lệ R/R, tính lại giá chốt lời
-                            else if (rrRatio > 0) {
-                                const reward = risk * rrRatio;
-                                const newTargetPrice = buyPrice + reward;
-                                targetPriceEl.value = newTargetPrice.toFixed(3).replace('.', ',');
+                            else if (rrRatios.length > 0) {
+                                const newTargetPrices = rrRatios.map(rr => {
+                                    const reward = risk * rr;
+                                    return buyPrice + reward;
+                                });
+                                targetPriceEl.value = newTargetPrices.map(price => price.toFixed(3).replace('.', ',')).join('; ');
                             }
                             // Nếu không có cả hai, tự động đặt tỉ lệ R/R mặc định là 2.5 và tính giá chốt lời
                             else {
@@ -958,7 +1068,7 @@
                     } else {
                         // Nếu điều kiện không hợp lệ, xóa các trường tính toán
                         if (changedEl === buyPriceEl || changedEl === stopLossEl) {
-                            if (buyPrice <= 0 || stopLoss <= 0 || buyPrice <= stopLoss) {
+                            if (buyPrice <= 0 || stopLosses.length === 0 || buyPrice <= stopLosses[0]) {
                                 targetPriceEl.value = '';
                                 rrRatioEl.value = '';
                             }
@@ -1019,10 +1129,11 @@
                 try {
                     const options = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: [newStock] }) };
                     await fetchWithApiRotation('', options);
+                    clearCalculationCache(); // Xóa cache để tính toán lại
                     await fetchStocks(); 
                     stockForm.reset();
                     clearDraft(); // Clear draft after successful submission
-                    showNotification('Đã thêm cổ phiếu thành công!', 'success');
+                    showNotification('Đã thêm cổ phiếu thành công! 💡 Mẹo: Bạn có thể nhập nhiều giá trị bằng dấu ; (VD: 35,000; 40,000)', 'success');
                     document.getElementById('customer-id').focus();
                 } catch (error) {
                     alert('Đã xảy ra lỗi khi thêm cổ phiếu.');
@@ -1057,19 +1168,31 @@
                 saveEditBtn.disabled = true;
                 saveEditBtn.textContent = 'Đang lưu...';
                 const stockId = document.getElementById('edit-id').value;
+                
+                // Hàm xử lý nhiều giá trị cho việc lưu
+                const processMultipleValues = (value) => {
+                    if (!value) return '';
+                    return value.split(';')
+                        .map(item => item.trim())
+                        .filter(item => item.length > 0)
+                        .map(item => item.replace(/\./g, ','))
+                        .join('; ');
+                };
+                
                 const updatedData = {
                     customerId: document.getElementById('edit-customer-id').value.toUpperCase(),
                     ticker: document.getElementById('edit-ticker').value.toUpperCase(),
                     buyPrice: document.getElementById('edit-buy-price').value.replace(',', '.'),
-                    targetPrice: document.getElementById('edit-target-price').value.replace(',', '.'),
-                    stopLoss: document.getElementById('edit-stop-loss').value.replace(',', '.'),
-                    rrRatio: document.getElementById('edit-rr-ratio').value.replace(',', '.'),
+                    targetPrice: processMultipleValues(document.getElementById('edit-target-price').value),
+                    stopLoss: processMultipleValues(document.getElementById('edit-stop-loss').value),
+                    rrRatio: processMultipleValues(document.getElementById('edit-rr-ratio').value),
                     marketPrice: document.getElementById('edit-market-price').value.replace(',', '.'),
                     dateAdded: new Date().toLocaleString('vi-VN', { timeStyle: 'medium', dateStyle: 'short' }).replace(/, /g, ' ')
                 };
                 try {
                     const options = { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: updatedData }) };
                     await fetchWithApiRotation(`/id/${stockId}`, options);
+                    clearCalculationCache(); // Xóa cache để tính toán lại
                     await fetchStocks(); 
                     closeEditModal();
                 } catch (error) {
@@ -1112,7 +1235,10 @@
                 }
             });
 
-            refreshBtn.addEventListener('click', fetchStocks);
+            refreshBtn.addEventListener('click', () => {
+                console.log('Refreshing data...');
+                fetchStocks();
+            });
             cancelEditBtn.addEventListener('click', closeEditModal);
             
             searchInput.addEventListener('input', () => {
@@ -1177,7 +1303,67 @@
                 document.getElementById('stop-loss').value = '';
             });
 
+            // Calculate RR from target prices in edit modal
+            document.getElementById('calculate-rr-btn').addEventListener('click', () => {
+                const buyPrice = parsePrice(document.getElementById('edit-buy-price').value);
+                const targetPrices = parseMultiplePrices(document.getElementById('edit-target-price').value);
+                const stopLosses = parseMultiplePrices(document.getElementById('edit-stop-loss').value);
+                
+                if (buyPrice > 0 && stopLosses.length > 0 && targetPrices.length > 0) {
+                    const risk = buyPrice - stopLosses[0];
+                    if (risk > 0) {
+                        const newRrRatios = targetPrices.map(targetPrice => {
+                            if (targetPrice > buyPrice) {
+                                const reward = targetPrice - buyPrice;
+                                return (reward / risk).toFixed(2);
+                            }
+                            return '';
+                        }).filter(rr => rr !== '');
+                        
+                        if (newRrRatios.length > 0) {
+                            document.getElementById('edit-rr-ratio').value = newRrRatios.map(rr => rr.replace('.', ',')).join('; ');
+                            showNotification('Đã tính toán R/R thành công!', 'success');
+                        } else {
+                            showNotification('Không thể tính toán R/R. Kiểm tra lại giá chốt lời.', 'error');
+                        }
+                    } else {
+                        showNotification('Không thể tính toán R/R. Kiểm tra lại giá mua và giá cắt lỗ.', 'error');
+                    }
+                } else {
+                    showNotification('Vui lòng nhập đầy đủ Giá Mua, Giá Cắt Lỗ và Giá Chốt Lời.', 'error');
+                }
+            });
 
+            // Calculate target prices from RR in edit modal
+            document.getElementById('calculate-target-btn').addEventListener('click', () => {
+                const buyPrice = parsePrice(document.getElementById('edit-buy-price').value);
+                const rrRatios = parseMultiplePrices(document.getElementById('edit-rr-ratio').value);
+                const stopLosses = parseMultiplePrices(document.getElementById('edit-stop-loss').value);
+                
+                if (buyPrice > 0 && stopLosses.length > 0 && rrRatios.length > 0) {
+                    const risk = buyPrice - stopLosses[0];
+                    if (risk > 0) {
+                        const newTargetPrices = rrRatios.map(rr => {
+                            if (rr > 0) {
+                                const reward = risk * rr;
+                                return buyPrice + reward;
+                            }
+                            return '';
+                        }).filter(price => price !== '');
+                        
+                        if (newTargetPrices.length > 0) {
+                            document.getElementById('edit-target-price').value = newTargetPrices.map(price => price.toFixed(3).replace('.', ',')).join('; ');
+                            showNotification('Đã tính toán Giá Chốt Lời thành công!', 'success');
+                        } else {
+                            showNotification('Không thể tính toán Giá Chốt Lời. Kiểm tra lại tỷ lệ R/R.', 'error');
+                        }
+                    } else {
+                        showNotification('Không thể tính toán Giá Chốt Lời. Kiểm tra lại giá mua và giá cắt lỗ.', 'error');
+                    }
+                } else {
+                    showNotification('Vui lòng nhập đầy đủ Giá Mua, Giá Cắt Lỗ và Tỷ lệ R/R.', 'error');
+                }
+            });
 
             // Auto-save draft on form input
             const formInputs = ['customer-id', 'ticker', 'buy-price', 'stop-loss', 'rr-ratio', 'target-price', 'market-price'];
@@ -1688,7 +1874,85 @@
                     dashboardGrid.parentNode.insertBefore(listView, dashboardGrid.nextSibling);
                 }
             };
+
+            // Auto-calculate RR when target price changes in edit modal
+            document.getElementById('edit-target-price').addEventListener('input', (e) => {
+                const buyPrice = parsePrice(document.getElementById('edit-buy-price').value);
+                const targetPrices = parseMultiplePrices(e.target.value);
+                const stopLosses = parseMultiplePrices(document.getElementById('edit-stop-loss').value);
+                
+                if (buyPrice > 0 && stopLosses.length > 0 && targetPrices.length > 0) {
+                    const risk = buyPrice - stopLosses[0];
+                    if (risk > 0) {
+                        const newRrRatios = targetPrices.map(targetPrice => {
+                            if (targetPrice > buyPrice) {
+                                const reward = targetPrice - buyPrice;
+                                return (reward / risk).toFixed(2);
+                            }
+                            return '';
+                        }).filter(rr => rr !== '');
+                        
+                        if (newRrRatios.length > 0) {
+                            document.getElementById('edit-rr-ratio').value = newRrRatios.map(rr => rr.replace('.', ',')).join('; ');
+                        }
+                    }
+                }
+            });
+
+            // Auto-calculate target prices when RR changes in edit modal
+            document.getElementById('edit-rr-ratio').addEventListener('input', (e) => {
+                const buyPrice = parsePrice(document.getElementById('edit-buy-price').value);
+                const rrRatios = parseMultiplePrices(e.target.value);
+                const stopLosses = parseMultiplePrices(document.getElementById('edit-stop-loss').value);
+                
+                if (buyPrice > 0 && stopLosses.length > 0 && rrRatios.length > 0) {
+                    const risk = buyPrice - stopLosses[0];
+                    if (risk > 0) {
+                        const newTargetPrices = rrRatios.map(rr => {
+                            if (rr > 0) {
+                                const reward = risk * rr;
+                                return buyPrice + reward;
+                            }
+                            return '';
+                        }).filter(price => price !== '');
+                        
+                        if (newTargetPrices.length > 0) {
+                            document.getElementById('edit-target-price').value = newTargetPrices.map(price => price.toFixed(3).replace('.', ',')).join('; ');
+                        }
+                    }
+                }
+            });
+
+            // Hàm kiểm tra và sửa dữ liệu R/R
+            const validateRRData = (stock) => {
+                if (!stock.rrRatio || typeof stock.rrRatio !== 'string') {
+                    // Nếu không có R/R, tính từ giá chốt lời và giá cắt lỗ
+                    const buyPrice = parsePrice(stock.buyPrice);
+                    const targetPrices = parseMultiplePrices(stock.targetPrice);
+                    const stopLosses = parseMultiplePrices(stock.stopLoss);
+                    
+                    if (buyPrice > 0 && stopLosses.length > 0 && targetPrices.length > 0) {
+                        const risk = buyPrice - stopLosses[0];
+                        if (risk > 0) {
+                            const calculatedRR = targetPrices.map(targetPrice => {
+                                if (targetPrice > buyPrice) {
+                                    const reward = targetPrice - buyPrice;
+                                    return (reward / risk).toFixed(2);
+                                }
+                                return '';
+                            }).filter(rr => rr !== '');
+                            
+                            if (calculatedRR.length > 0) {
+                                stock.rrRatio = calculatedRR.join('; ');
+                                console.log('Calculated RR:', stock.rrRatio);
+                            }
+                        }
+                    }
+                }
+                return stock;
+            };
         });
     </script>
 </body>
 </html>
+
