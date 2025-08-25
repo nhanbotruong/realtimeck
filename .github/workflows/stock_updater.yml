@@ -4,14 +4,18 @@ on:
   workflow_dispatch:  # Cho phép chạy thủ công
   push:
     branches: [ main ]
+  # Thêm schedule để tự động restart
+  schedule:
+    # Chạy mỗi 6 giờ để đảm bảo luôn có workflow chạy
+    - cron: '0 */6 * * *'
 
 jobs:
   update-stock-prices:
     runs-on: ubuntu-latest
-    # Ngăn chặn chạy song song - chỉ cho phép 1 workflow chạy tại một thời điểm
+    # Cho phép chạy song song nhưng chỉ 1 instance tại một thời điểm
     concurrency:
       group: stock-updater
-      cancel-in-progress: true
+      cancel-in-progress: false  # Không cancel workflow đang chạy
     
     steps:
     - name: Checkout code
@@ -38,6 +42,13 @@ jobs:
         # Tạo file credentials từ biến môi trường
         echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > google_credentials.json
         
+    - name: Check workflow status
+      run: |
+        echo "🔄 Starting new workflow instance"
+        echo "📊 Workflow run ID: ${{ github.run_id }}"
+        echo "⏰ Started at: $(date)"
+        echo "🔄 This workflow will run for up to 6 hours then restart automatically"
+        
     - name: Update stock prices
       env:
         GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
@@ -54,8 +65,21 @@ jobs:
           exit 0
         fi
         
+    - name: Auto restart workflow
+      if: always()
+      run: |
+        # Kiểm tra exit code của step trước
+        if [ ${{ steps.update-stock-prices.outcome }} == 'failure' ]; then
+          echo "🔄 Detected restart signal (exit code 100)"
+          echo "📊 This is expected behavior - workflow will restart automatically"
+          echo "⏰ Next restart will be triggered by schedule or manual dispatch"
+          exit 0
+        fi
+        
     - name: Log completion
+      if: success()
       run: |
         echo "✅ Stock price update completed successfully!"
         echo "📊 Data updated in Google Sheets"
         echo "🕐 Completed at: $(date)"
+        echo "🔄 Next scheduled run: 6 hours from now"

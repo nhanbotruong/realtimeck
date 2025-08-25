@@ -214,12 +214,6 @@ def connect_google_sheets():
             if os.path.exists('google_credentials.json'):
                 with open('google_credentials.json', 'r') as f:
                     credentials_json = f.read()
-            elif os.path.exists('Google credentials.json'):
-                with open('Google credentials.json', 'r') as f:
-                    credentials_json = f.read()
-            elif os.path.exists('create-462716-fb36b6cea72a.json'):
-                with open('create-462716-fb36b6cea72a.json', 'r') as f:
-                    credentials_json = f.read()
             else:
                 print("❌ Không tìm thấy Google credentials. Vui lòng cấu hình GOOGLE_CREDENTIALS_JSON.")
                 return None
@@ -393,8 +387,12 @@ def run_auto_update():
                     print(f"🔄 Tự động restart #{_restart_count} để tránh GitHub Actions timeout...")
                     print(f"📊 Tổng số lần cập nhật: {loop_count}")
                     print(f"📊 Số lần restart: {_restart_count} (vô hạn)")
+                    print(f"⏰ Thời gian chạy: {runtime_minutes:.1f} phút / {_max_runtime_minutes} phút")
                     
                     print("🔄 Khởi động lại workflow...")
+                    print("💡 Workflow sẽ được restart tự động bởi GitHub Actions schedule")
+                    print("📊 Exit code 100 là bình thường - đây là tín hiệu restart")
+                    
                     # Lưu restart count trước khi exit
                     save_restart_count()
                     # Trigger restart bằng cách exit với code đặc biệt
