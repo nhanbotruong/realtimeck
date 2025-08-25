@@ -80,11 +80,29 @@ def get_realtime_price(ticker_clean):
             # Thử sử dụng Vnstock class trước
             vs = vnstock.Vnstock()
             stock_data = vs.stock(symbol=ticker_clean)
+            quote_dict = vars(stock_data.quote)
         except AttributeError:
-            # Fallback: sử dụng API trực tiếp
-            stock_data = vnstock.stock(symbol=ticker_clean)
-        
-        quote_dict = vars(stock_data.quote)
+            # Fallback: sử dụng Quote API trực tiếp
+            quote_data = vnstock.Quote(symbol=ticker_clean)
+            quote_dict = vars(quote_data)
+        except Exception as e:
+            # Fallback cuối cùng: sử dụng historical data
+            from datetime import datetime, timedelta
+            start_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+            end_date = datetime.now().strftime('%Y-%m-%d')
+            
+            try:
+                historical_data = vnstock.stock_historical_data(symbol=ticker_clean, start_date=start_date, end_date=end_date)
+                if historical_data is not None and len(historical_data) > 0:
+                    latest_data = historical_data.iloc[-1]
+                    price = latest_data.get('close', 'N/A')
+                    if isinstance(price, (np.integer, np.floating)):
+                        price = float(price)
+                    return price, f"historical ({latest_data.get('time', 'N/A')})"
+                else:
+                    return "N/A", "không có dữ liệu lịch sử"
+            except Exception as hist_error:
+                return "Lỗi", f"Lỗi historical: {hist_error}"
         
         # Thử truy cập trực tiếp vào data_source để lấy dữ liệu gần nhất
         try:
@@ -182,14 +200,19 @@ def get_closing_price(ticker_clean):
             # Thử sử dụng Vnstock class trước
             vs = vnstock.Vnstock()
             stock_data = vs.stock(symbol=ticker_clean)
+            
+            # Lấy dữ liệu 7 ngày gần nhất
+            from datetime import datetime, timedelta
+            start_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+            historical_data = stock_data.quote.data_source.history(start_date)
+            
         except AttributeError:
-            # Fallback: sử dụng API trực tiếp
-            stock_data = vnstock.stock(symbol=ticker_clean)
-        
-        # Lấy dữ liệu 7 ngày gần nhất
-        from datetime import datetime, timedelta
-        start_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
-        historical_data = stock_data.quote.data_source.history(start_date)
+            # Fallback: sử dụng historical data API trực tiếp
+            from datetime import datetime, timedelta
+            start_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+            end_date = datetime.now().strftime('%Y-%m-%d')
+            
+            historical_data = vnstock.stock_historical_data(symbol=ticker_clean, start_date=start_date, end_date=end_date)
         
         if historical_data is not None and len(historical_data) > 0:
             # Lấy giá đóng cửa của ngày giao dịch gần nhất
