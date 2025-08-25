@@ -214,6 +214,12 @@ def connect_google_sheets():
             if os.path.exists('google_credentials.json'):
                 with open('google_credentials.json', 'r') as f:
                     credentials_json = f.read()
+            elif os.path.exists('Google credentials.json'):
+                with open('Google credentials.json', 'r') as f:
+                    credentials_json = f.read()
+            elif os.path.exists('create-462716-fb36b6cea72a.json'):
+                with open('create-462716-fb36b6cea72a.json', 'r') as f:
+                    credentials_json = f.read()
             else:
                 print("❌ Không tìm thấy Google credentials. Vui lòng cấu hình GOOGLE_CREDENTIALS_JSON.")
                 return None
