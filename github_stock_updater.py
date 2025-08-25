@@ -356,6 +356,9 @@ def update_stock_prices(worksheet):
                 
                 # Format giá trị để hiển thị đẹp hơn
                 if isinstance(price, float):
+                    # Kiểm tra nếu giá quá lớn (có thể bị nhân 1000)
+                    if price > 10000:  # Nếu giá > 10,000 thì có thể bị nhân 1000
+                        price = price / 1000
                     # Làm tròn đến 2 chữ số thập phân
                     price = round(price, 2)
                 
