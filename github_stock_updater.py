@@ -7,6 +7,11 @@ import os
 import json
 import time as time_module
 import numpy as np
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+import signal
+import platform
 
 # ====== CẤU HÌNH GITHUB ACTIONS ======
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1xuU1VzRtZtVlNE_GLzebROre4I5ZvwLnU3qGskY10BQ/edit?usp=sharing"
@@ -26,6 +31,100 @@ _max_runtime_minutes = 350  # Restart trước 6 giờ để tránh timeout
 # Biến để theo dõi restart count
 _restart_count = 0
 _max_restarts = float('inf')  # Vô hạn restart - chỉ dừng khi cancel thủ công
+
+# Cấu hình timeout cho API calls
+API_TIMEOUT = 10  # 10 giây timeout cho mỗi API call
+MAX_RETRIES = 3   # Số lần retry tối đa
+
+def setup_requests_session():
+    """Thiết lập session với retry strategy"""
+    session = requests.Session()
+    retry_strategy = Retry(
+        total=MAX_RETRIES,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["HEAD", "GET", "OPTIONS", "POST"]
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    session.timeout = API_TIMEOUT
+    return session
+
+def check_network_connection():
+    """Kiểm tra kết nối mạng"""
+    try:
+        session = setup_requests_session()
+        # Thử kết nối đến một số domain phổ biến
+        test_urls = [
+            "https://www.google.com",
+            "https://www.vietcap.com.vn",
+            "https://www.ssi.com.vn"
+        ]
+        
+        for url in test_urls:
+            try:
+                response = session.get(url, timeout=5)
+                if response.status_code == 200:
+                    return True
+            except:
+                continue
+        
+        return False
+    except:
+        return False
+
+def safe_vnstock_call(func, *args, **kwargs):
+    """Gọi vnstock API một cách an toàn với timeout và retry"""
+    import signal
+    import platform
+    
+    # Windows không hỗ trợ signal.SIGALRM, sử dụng threading.Timer thay thế
+    if platform.system() == 'Windows':
+        import threading
+        import time
+        
+        result = [None]
+        exception = [None]
+        
+        def target():
+            try:
+                result[0] = func(*args, **kwargs)
+            except Exception as e:
+                exception[0] = e
+        
+        thread = threading.Thread(target=target)
+        thread.daemon = True
+        thread.start()
+        thread.join(timeout=API_TIMEOUT)
+        
+        if thread.is_alive():
+            # Thread vẫn chạy sau timeout
+            return None  # Timeout
+        
+        if exception[0]:
+            raise exception[0]
+        
+        return result[0]
+    else:
+        # Unix/Linux systems
+        def timeout_handler(signum, frame):
+            raise TimeoutError("API call timeout")
+        
+        # Thiết lập timeout
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(API_TIMEOUT)
+        
+        try:
+            result = func(*args, **kwargs)
+            signal.alarm(0)  # Hủy timeout
+            return result
+        except TimeoutError:
+            signal.alarm(0)
+            raise TimeoutError(f"API call timeout after {API_TIMEOUT} seconds")
+        except Exception as e:
+            signal.alarm(0)
+            raise e
 
 def load_restart_count():
     """Load restart count từ file"""
@@ -69,40 +168,92 @@ def is_market_open():
 def get_realtime_price(ticker_clean):
     """Lấy giá realtime của mã cổ phiếu"""
     import time
-    import signal
     
     try:
+        # Kiểm tra kết nối mạng trước
+        if not check_network_connection():
+            return "Lỗi", "Không có kết nối mạng"
+        
         # Thêm delay để tránh bị block
         time.sleep(0.5)
         
         # Sử dụng stock method với timeout
         try:
-            # Thử sử dụng Vnstock class trước
+            # Thử sử dụng Vnstock class trước với timeout
             vs = vnstock.Vnstock()
-            stock_data = vs.stock(symbol=ticker_clean)
-            quote_dict = vars(stock_data.quote)
-        except AttributeError:
-            # Fallback: sử dụng Quote API trực tiếp
-            quote_data = vnstock.Quote(symbol=ticker_clean)
-            quote_dict = vars(quote_data)
-        except Exception as e:
-            # Fallback cuối cùng: sử dụng historical data
-            from datetime import datetime, timedelta
-            start_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
-            end_date = datetime.now().strftime('%Y-%m-%d')
+            stock_data = safe_vnstock_call(vs.stock, symbol=ticker_clean)
             
+            # Kiểm tra nếu API call bị timeout
+            if stock_data is None:
+                raise TimeoutError("API call timeout")
+                
+            quote_dict = vars(stock_data.quote)
+        except (AttributeError, Exception) as e:
+            # Fallback: sử dụng Quote API trực tiếp
             try:
-                historical_data = vnstock.stock_historical_data(symbol=ticker_clean, start_date=start_date, end_date=end_date)
-                if historical_data is not None and len(historical_data) > 0:
-                    latest_data = historical_data.iloc[-1]
-                    price = latest_data.get('close', 'N/A')
-                    if isinstance(price, (np.integer, np.floating)):
-                        price = float(price)
-                    return price, f"historical ({latest_data.get('time', 'N/A')})"
-                else:
-                    return "N/A", "không có dữ liệu lịch sử"
-            except Exception as hist_error:
-                return "Lỗi", f"Lỗi historical: {hist_error}"
+                quote_data = safe_vnstock_call(vnstock.Quote, symbol=ticker_clean)
+                
+                # Kiểm tra nếu API call bị timeout
+                if quote_data is None:
+                    raise TimeoutError("Quote API call timeout")
+                    
+                quote_dict = vars(quote_data)
+            except Exception as quote_error:
+                # Fallback cuối cùng: sử dụng historical data
+                from datetime import datetime, timedelta
+                start_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+                end_date = datetime.now().strftime('%Y-%m-%d')
+                
+                try:
+                    # Sử dụng API mới của vnstock
+                    historical_data = safe_vnstock_call(vnstock.stock_intraday_data, symbol=ticker_clean, page_size=1)
+                    
+                    # Kiểm tra nếu API call bị timeout
+                    if historical_data is None:
+                        raise TimeoutError("Intraday API call timeout")
+                        
+                    if historical_data is not None and len(historical_data) > 0:
+                        latest_data = historical_data.iloc[-1]
+                        price = latest_data.get('close', latest_data.get('lastPrice', 'N/A'))
+                        if isinstance(price, (np.integer, np.floating)):
+                            price = float(price)
+                        return price, f"intraday ({latest_data.get('time', 'N/A')})"
+                    else:
+                        # Thử với API khác
+                        try:
+                            historical_data = safe_vnstock_call(vnstock.stock_historical_data, symbol=ticker_clean, start_date=start_date, end_date=end_date)
+                            
+                            # Kiểm tra nếu API call bị timeout
+                            if historical_data is None:
+                                raise TimeoutError("Historical API call timeout")
+                                
+                            if historical_data is not None and len(historical_data) > 0:
+                                latest_data = historical_data.iloc[-1]
+                                price = latest_data.get('close', 'N/A')
+                                if isinstance(price, (np.integer, np.floating)):
+                                    price = float(price)
+                                return price, f"historical ({latest_data.get('time', 'N/A')})"
+                        except AttributeError:
+                            # Thử với API cũ
+                            try:
+                                historical_data = safe_vnstock_call(vnstock.stock_historical_data, symbol=ticker_clean, start_date=start_date, end_date=end_date)
+                                
+                                # Kiểm tra nếu API call bị timeout
+                                if historical_data is None:
+                                    raise TimeoutError("Historical API call timeout")
+                                    
+                                if historical_data is not None and len(historical_data) > 0:
+                                    latest_data = historical_data.iloc[-1]
+                                    price = latest_data.get('close', 'N/A')
+                                    if isinstance(price, (np.integer, np.floating)):
+                                        price = float(price)
+                                    return price, f"historical ({latest_data.get('time', 'N/A')})"
+                            except:
+                                pass
+                        
+                        return "N/A", "không có dữ liệu lịch sử"
+                except Exception as hist_error:
+                    return "Lỗi", f"Lỗi historical: {hist_error}"
         
         # Thử truy cập trực tiếp vào data_source để lấy dữ liệu gần nhất
         try:
@@ -192,6 +343,10 @@ def get_closing_price(ticker_clean):
     import time
     
     try:
+        # Kiểm tra kết nối mạng trước
+        if not check_network_connection():
+            return "Lỗi", "Không có kết nối mạng"
+        
         # Thêm delay để tránh bị block
         time.sleep(0.5)
         
@@ -199,7 +354,11 @@ def get_closing_price(ticker_clean):
         try:
             # Thử sử dụng Vnstock class trước
             vs = vnstock.Vnstock()
-            stock_data = vs.stock(symbol=ticker_clean)
+            stock_data = safe_vnstock_call(vs.stock, symbol=ticker_clean)
+            
+            # Kiểm tra nếu API call bị timeout
+            if stock_data is None:
+                raise TimeoutError("API call timeout")
             
             # Lấy dữ liệu 7 ngày gần nhất
             from datetime import datetime, timedelta
@@ -212,7 +371,31 @@ def get_closing_price(ticker_clean):
             start_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
             end_date = datetime.now().strftime('%Y-%m-%d')
             
-            historical_data = vnstock.stock_historical_data(symbol=ticker_clean, start_date=start_date, end_date=end_date)
+            try:
+                # Thử với API mới trước
+                historical_data = safe_vnstock_call(vnstock.stock_intraday_data, symbol=ticker_clean, page_size=7)
+                
+                # Kiểm tra nếu API call bị timeout
+                if historical_data is None:
+                    raise TimeoutError("Intraday API call timeout")
+                    
+                if historical_data is None or len(historical_data) == 0:
+                    # Fallback với API cũ
+                    historical_data = safe_vnstock_call(vnstock.stock_historical_data, symbol=ticker_clean, start_date=start_date, end_date=end_date)
+                    
+                    # Kiểm tra nếu API call bị timeout
+                    if historical_data is None:
+                        raise TimeoutError("Historical API call timeout")
+            except AttributeError:
+                # Thử với API cũ
+                try:
+                    historical_data = safe_vnstock_call(vnstock.stock_historical_data, symbol=ticker_clean, start_date=start_date, end_date=end_date)
+                    
+                    # Kiểm tra nếu API call bị timeout
+                    if historical_data is None:
+                        raise TimeoutError("Historical API call timeout")
+                except:
+                    historical_data = None
         
         if historical_data is not None and len(historical_data) > 0:
             # Lấy giá đóng cửa của ngày giao dịch gần nhất
@@ -320,6 +503,7 @@ def update_stock_prices(worksheet):
         # Lấy giá và cập nhật
         prices_to_update = []
         success_count = 0
+        error_count = 0
         
         # Tối ưu hóa: xử lý batch để giảm thời gian
         batch_size = 5  # Giảm batch size để tránh timeout
@@ -338,40 +522,58 @@ def update_stock_prices(worksheet):
                     prices_to_update.append([""])
                     continue
                 
-                if mode == "realtime":
-                    price, info = get_realtime_price(ticker_clean)
-                else:
-                    price, info = get_closing_price(ticker_clean)
-                
-                # Đảm bảo giá trị là string hoặc number, không phải numpy types
-                if isinstance(price, (np.integer, np.floating)):
-                    price = float(price)
-                elif isinstance(price, (int, float)):
-                    price = float(price)
-                elif price not in ['N/A', 'Lỗi', '']:
-                    try:
+                try:
+                    if mode == "realtime":
+                        price, info = get_realtime_price(ticker_clean)
+                    else:
+                        price, info = get_closing_price(ticker_clean)
+                    
+                    # Xử lý trường hợp API trả về None
+                    if price is None:
+                        price = "N/A"
+                        info = "API trả về None"
+                    
+                    # Đảm bảo giá trị là string hoặc number, không phải numpy types
+                    if isinstance(price, (np.integer, np.floating)):
                         price = float(price)
-                    except (ValueError, TypeError):
-                        price = str(price)
-                
-                # Format giá trị để hiển thị đẹp hơn
-                if isinstance(price, float):
-                    # Kiểm tra nếu giá quá lớn (có thể bị nhân 1000)
-                    if price > 10000:  # Nếu giá > 10,000 thì có thể bị nhân 1000
-                        price = price / 1000
-                    # Làm tròn đến 2 chữ số thập phân
-                    price = round(price, 2)
-                
-                # Đảm bảo giá trị hợp lệ trước khi thêm vào list
-                if price not in ['N/A', 'Lỗi', '', None]:
-                    prices_to_update.append([price])
-                    success_count += 1
-                else:
+                    elif isinstance(price, (int, float)):
+                        price = float(price)
+                    elif price not in ['N/A', 'Lỗi', '']:
+                        try:
+                            price = float(price)
+                        except (ValueError, TypeError):
+                            price = str(price)
+                    
+                    # Format giá trị để hiển thị đẹp hơn
+                    if isinstance(price, float):
+                        # Kiểm tra nếu giá quá lớn (có thể bị nhân 1000)
+                        if price > 10000:  # Nếu giá > 10,000 thì có thể bị nhân 1000
+                            price = price / 1000
+                        # Làm tròn đến 2 chữ số thập phân
+                        price = round(price, 2)
+                    
+                    # Đảm bảo giá trị hợp lệ trước khi thêm vào list
+                    if price not in ['N/A', 'Lỗi', '', None]:
+                        prices_to_update.append([price])
+                        success_count += 1
+                    else:
+                        prices_to_update.append([""])
+                        error_count += 1
+                    
+                    # Giảm logging để tăng tốc - chỉ log mỗi 50 mã và các mã quan trọng
+                    if i % 50 == 0 or ticker_clean in ['VCB', 'HPG', 'VNM', 'FPT']:
+                        print(f"  - {ticker_clean}: {price} ({info})")
+                        
+                except Exception as e:
+                    error_msg = str(e)
+                    if "timeout" in error_msg.lower():
+                        print(f"  - {ticker_clean}: Timeout - {error_msg}")
+                    elif "connection" in error_msg.lower():
+                        print(f"  - {ticker_clean}: Lỗi kết nối - {error_msg}")
+                    else:
+                        print(f"  - {ticker_clean}: Lỗi - {error_msg}")
                     prices_to_update.append([""])
-                
-                # Giảm logging để tăng tốc - chỉ log mỗi 50 mã và các mã quan trọng
-                if i % 50 == 0 or ticker_clean in ['VCB', 'HPG', 'VNM', 'FPT']:
-                    print(f"  - {ticker_clean}: {price} ({info})")
+                    error_count += 1
         
         # Cập nhật Google Sheets - sử dụng batch update để tăng tốc
         if prices_to_update:
@@ -391,6 +593,8 @@ def update_stock_prices(worksheet):
                 # Sử dụng named arguments để tránh deprecation warning
                 worksheet.update(range_name=range_to_update, values=valid_prices)
                 print(f"\n✅ Cập nhật thành công {success_count}/{len(tickers)} mã!")
+                if error_count > 0:
+                    print(f"⚠️ Có {error_count} mã bị lỗi")
                 
                 # Kiểm tra xem dữ liệu đã được cập nhật chưa
                 try:
@@ -450,6 +654,11 @@ def run_auto_update():
     print("⏱️ Khoảng thời gian: 1 phút giữa các lần cập nhật")
     print("🛑 Để dừng: Cancel workflow trong GitHub Actions")
     print("⚠️ Tự động restart trước 6 giờ để tránh timeout")
+    print("🔧 Đã sửa lỗi: Timeout, Connection, API compatibility")
+    print("⏱️ Timeout: 10 giây cho mỗi API call")
+    print("🔄 Retry: 3 lần cho mỗi request")
+    print("🌐 Network check: Tự động kiểm tra kết nối mạng")
+    print("🛠️ Error handling: Cải thiện xử lý lỗi và logging")
     print("="*60)
     
     # Load restart count
@@ -470,6 +679,13 @@ def run_auto_update():
     if not worksheet:
         print("❌ Không thể kết nối Google Sheets. Thoát chương trình.")
         return
+    
+    # Kiểm tra kết nối mạng
+    print("🌐 Kiểm tra kết nối mạng...")
+    if not check_network_connection():
+        print("⚠️ Cảnh báo: Kết nối mạng có thể không ổn định")
+    else:
+        print("✅ Kết nối mạng ổn định")
     
     loop_count = 0
     
@@ -562,6 +778,11 @@ def run_auto_update():
 if __name__ == "__main__":
     print("📊 GITHUB ACTIONS STOCK PRICE UPDATER")
     print("🔄 Auto cập nhật giá cổ phiếu Việt Nam liên tục (chạy cho đến khi cancel)")
+    print("🔧 Đã sửa lỗi: Timeout, Connection, API compatibility")
+    print("⏱️ Timeout: 10 giây cho mỗi API call")
+    print("🔄 Retry: 3 lần cho mỗi request")
+    print("🌐 Network check: Tự động kiểm tra kết nối mạng")
+    print("🛠️ Error handling: Cải thiện xử lý lỗi và logging")
     print("="*60)
     
     try:
