@@ -399,7 +399,19 @@ def _get_price_method1(ticker_clean):
             if isinstance(trading_date, np.datetime64):
                 trading_date = str(trading_date)
             
-            return close_price, f"method1 ({trading_date})"
+            # Xử lý thời gian để hiển thị chính xác hơn
+            if trading_date and trading_date != 'N/A':
+                # Kiểm tra nếu thời gian là 00:00:00 thì hiển thị là "đóng cửa"
+                if '00:00:00' in str(trading_date):
+                    # Lấy ngày từ trading_date
+                    date_only = str(trading_date).split(' ')[0]
+                    trading_date_display = f"{date_only} (đóng cửa)"
+                else:
+                    trading_date_display = str(trading_date)
+            else:
+                trading_date_display = "N/A"
+            
+            return close_price, f"method1 ({trading_date_display})"
     except:
         pass
     return None
@@ -423,7 +435,19 @@ def _get_price_method2(ticker_clean):
             if isinstance(trading_date, np.datetime64):
                 trading_date = str(trading_date)
             
-            return close_price, f"method2 ({trading_date})"
+            # Xử lý thời gian để hiển thị chính xác hơn
+            if trading_date and trading_date != 'N/A':
+                # Kiểm tra nếu thời gian là 00:00:00 thì hiển thị là "đóng cửa"
+                if '00:00:00' in str(trading_date):
+                    # Lấy ngày từ trading_date
+                    date_only = str(trading_date).split(' ')[0]
+                    trading_date_display = f"{date_only} (đóng cửa)"
+                else:
+                    trading_date_display = str(trading_date)
+            else:
+                trading_date_display = "N/A"
+            
+            return close_price, f"method2 ({trading_date_display})"
     except:
         pass
     return None
@@ -443,7 +467,19 @@ def _get_price_method3(ticker_clean):
             if isinstance(trading_date, np.datetime64):
                 trading_date = str(trading_date)
             
-            return close_price, f"method3 ({trading_date})"
+            # Xử lý thời gian để hiển thị chính xác hơn
+            if trading_date and trading_date != 'N/A':
+                # Kiểm tra nếu thời gian là 00:00:00 thì hiển thị là "đóng cửa"
+                if '00:00:00' in str(trading_date):
+                    # Lấy ngày từ trading_date
+                    date_only = str(trading_date).split(' ')[0]
+                    trading_date_display = f"{date_only} (đóng cửa)"
+                else:
+                    trading_date_display = str(trading_date)
+            else:
+                trading_date_display = "N/A"
+            
+            return close_price, f"method3 ({trading_date_display})"
     except:
         pass
     return None
