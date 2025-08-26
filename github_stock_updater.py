@@ -561,9 +561,9 @@ def update_stock_prices(worksheet):
         
         print(f"🔍 Tìm thấy {len(tickers)} mã cổ phiếu để cập nhật.")
         
-        # Chỉ sử dụng giá đóng cửa gần nhất
-        mode = "closing"
-        print("🤖 Sử dụng GIÁ ĐÓNG CỬA GẦN NHẤT (nhanh và ổn định)")
+        # Sử dụng logic thông minh: realtime khi thị trường mở, đóng cửa khi thị trường đóng
+        mode = "smart"
+        print("🤖 Sử dụng LOGIC THÔNG MINH: Realtime khi thị trường mở, Đóng cửa khi thị trường đóng")
         
         # Lấy giá và cập nhật
         prices_to_update = []
@@ -588,8 +588,16 @@ def update_stock_prices(worksheet):
                     continue
                 
                 try:
-                    # Chỉ lấy giá đóng cửa gần nhất
-                    price, info = get_closing_price(ticker_clean)
+                    # Kiểm tra thị trường có đang mở không
+                    if is_market_open():
+                        # Thị trường đang mở: lấy lastPrice (realtime)
+                        price, info = get_realtime_price(ticker_clean)
+                        if price in ['N/A', 'Lỗi', '', None]:
+                            # Fallback: lấy giá đóng cửa nếu realtime không có
+                            price, info = get_closing_price(ticker_clean)
+                    else:
+                        # Thị trường đã đóng: lấy giá đóng cửa gần nhất
+                        price, info = get_closing_price(ticker_clean)
                     
                     # Xử lý trường hợp API trả về None
                     if price is None:
@@ -693,7 +701,10 @@ def update_stock_prices(worksheet):
             # Thông báo thời gian
             vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
             now = datetime.now(vn_tz)
-            mode_text = "ĐÓNG CỬA GẦN NHẤT"
+            if is_market_open():
+                mode_text = "REALTIME (thị trường đang mở)"
+            else:
+                mode_text = "ĐÓNG CỬA GẦN NHẤT (thị trường đã đóng)"
             print(f"🕐 Thời gian cập nhật: {now.strftime('%H:%M:%S %d/%m/%Y')}")
             print(f"📊 Chế độ sử dụng: {mode_text}")
             
@@ -713,7 +724,7 @@ def run_auto_update():
     
     print("🚀 BẮT ĐẦU AUTO CẬP NHẬT GIÁ CỔ PHIẾU")
     print("⏰ Chế độ: Vô thời hạn (chạy cho đến khi cancel thủ công)")
-    print("🔄 Chế độ: Chỉ lấy GIÁ ĐÓNG CỬA GẦN NHẤT (nhanh và ổn định)")
+    print("🔄 Chế độ: LOGIC THÔNG MINH - Realtime khi thị trường mở, Đóng cửa khi thị trường đóng")
     print("⏱️ Khoảng thời gian: 1 phút giữa các lần cập nhật")
     print("🛑 Để dừng: Cancel workflow trong GitHub Actions")
     print("⚠️ Tự động restart trước 6 giờ để tránh timeout")
@@ -856,8 +867,8 @@ if __name__ == "__main__":
     print("🛠️ Error handling: Cải thiện xử lý lỗi và logging")
     print("⚡ Tối ưu hóa tốc độ: Batch processing, giảm delay")
     print("📈 Performance: Theo dõi thời gian cập nhật")
-    print("🎯 Chế độ: Chỉ lấy GIÁ ĐÓNG CỬA GẦN NHẤT")
-    print("🚀 Tốc độ: Nhanh hơn 50% so với realtime")
+    print("🎯 Chế độ: LOGIC THÔNG MINH - Realtime khi thị trường mở, Đóng cửa khi thị trường đóng")
+    print("🚀 Tốc độ: Tối ưu cho từng thời điểm")
     print("🛡️ Fallback: 3 methods khác nhau khi API timeout")
     print("🔍 Debug: Hiển thị chi tiết lỗi timeout")
     print("="*60)
