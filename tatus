@@ -1,0 +1,5 @@
+[33md4e869d[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Add smart logic: realtime when market open, closing price when market closed
+[33mf54b7e1[m Fix time display: show 'đóng cửa' instead of 00:00:00 for closing prices
+[33mbb3d2d6[m Update github_stock_updater.py with improved error handling and performance optimizations
+[33mc133fed[m Update github_stock_updater.py
+[33m61d1222[m Update github_stock_updater.py
