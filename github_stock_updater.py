@@ -662,7 +662,7 @@ def update_stock_prices(worksheet):
                         valid_prices.append([""])
                 
                 # Sử dụng named arguments để tránh deprecation warning
-                worksheet.update(range_name=range_to_update, values=valid_prices)
+                worksheet.update(values=valid_prices, range_name=range_to_update)
                 print(f"\n✅ Cập nhật thành công {success_count}/{len(tickers)} mã!")
                 if error_count > 0:
                     print(f"⚠️ Có {error_count} mã bị lỗi")
@@ -688,7 +688,7 @@ def update_stock_prices(worksheet):
                         price = price_list[0] if price_list else ""
                         if price and price not in ['N/A', 'Lỗi', '', None]:
                             # Sử dụng named arguments để tránh deprecation warning
-                            worksheet.update(range_name=f'H{i}', values=[[price]])
+                            worksheet.update(values=[[price]], range_name=f'H{i}')
                     print(f"✅ Cập nhật thành công với phương pháp thay thế!")
                 except Exception as e2:
                     print(f"❌ Không thể cập nhật Google Sheets: {e2}")
