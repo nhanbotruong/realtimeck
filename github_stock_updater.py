@@ -37,8 +37,23 @@ API_TIMEOUT = 8  # Tăng lên 8 giây cho GitHub Actions
 MAX_RETRIES = 3   # Tăng lên 3 lần retry cho GitHub Actions
 
 def setup_requests_session():
-    """Thiết lập session với retry strategy"""
+    """Thiết lập session với retry strategy và headers giả lập browser"""
     session = requests.Session()
+    
+    # Headers giả lập browser thật để tránh bị block
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Cache-Control': 'max-age=0'
+    })
+    
     retry_strategy = Retry(
         total=MAX_RETRIES,
         backoff_factor=1,
@@ -490,10 +505,96 @@ def get_realtime_price_force(ticker_clean):
         except Exception as e:
             pass
         
+        # Method 3: Thử sử dụng requests trực tiếp để bypass block
+        try:
+            session = setup_requests_session()
+            
+            # Thử các API khác nhau
+            api_urls = [
+                f"https://finfo-api.vndirect.com.vn/v4/stock_prices?sort=date&q=code:{ticker_clean}&size=1",
+                f"https://api.vietstock.vn/data/stockprice?symbol={ticker_clean}&size=1",
+                f"https://www.vietcap.com.vn/api/stock/{ticker_clean}/price"
+            ]
+            
+            for api_url in api_urls:
+                try:
+                    response = session.get(api_url, timeout=10)
+                    if response.status_code == 200:
+                        data = response.json()
+                        
+                        # Parse dữ liệu tùy theo format của từng API
+                        if 'data' in data and len(data['data']) > 0:
+                            stock_data = data['data'][0]
+                            price = stock_data.get('close', stock_data.get('lastPrice', stock_data.get('price')))
+                            
+                            if price and price not in ['N/A', 'null', None]:
+                                if isinstance(price, (np.integer, np.floating)):
+                                    price = float(price)
+                                return price, f"realtime_force3 (direct API)"
+                except Exception as e:
+                    continue
+        except Exception as e:
+            pass
+        
         return "N/A", "không có dữ liệu realtime force"
         
     except Exception as e:
         return "Lỗi", f"Lỗi realtime force: {e}"
+
+def get_realtime_price_webscrape(ticker_clean):
+    """Lấy giá realtime bằng web scraping khi API bị block"""
+    import time
+    import re
+    
+    try:
+        # Kiểm tra kết nối mạng trước
+        if not check_network_connection():
+            return "Lỗi", "Không có kết nối mạng"
+        
+        # Thêm delay để tránh bị block
+        time.sleep(0.3)  # Tăng delay cho web scraping
+        
+        session = setup_requests_session()
+        
+        # Thử các trang web khác nhau
+        scrape_urls = [
+            f"https://www.vietcap.com.vn/stock/{ticker_clean}",
+            f"https://www.ssi.com.vn/stock/{ticker_clean}",
+            f"https://www.vndirect.com.vn/stock/{ticker_clean}"
+        ]
+        
+        for url in scrape_urls:
+            try:
+                response = session.get(url, timeout=15)
+                if response.status_code == 200:
+                    html_content = response.text
+                    
+                    # Tìm giá trong HTML bằng regex
+                    price_patterns = [
+                        r'"price":\s*([\d.]+)',
+                        r'"lastPrice":\s*([\d.]+)',
+                        r'"close":\s*([\d.]+)',
+                        r'class="price[^"]*">\s*([\d,]+)',
+                        r'data-price="([\d.]+)"'
+                    ]
+                    
+                    for pattern in price_patterns:
+                        matches = re.findall(pattern, html_content)
+                        if matches:
+                            price_str = matches[0].replace(',', '')
+                            try:
+                                price = float(price_str)
+                                if 1 <= price <= 100000:  # Kiểm tra giá hợp lệ
+                                    return price, f"realtime_webscrape ({url.split('/')[-2]})"
+                            except ValueError:
+                                continue
+            except Exception as e:
+                continue
+        
+        return "N/A", "không có dữ liệu từ web scraping"
+        
+    except Exception as e:
+        return "Lỗi", f"Lỗi web scraping: {e}"
 
 # ====== 3. LẤY GIÁ ĐÓNG CỬA ======
 def get_closing_price(ticker_clean):
@@ -766,10 +867,15 @@ def update_stock_prices(worksheet):
                                 print(f"  - {ticker_clean}: 🔥 Thử method force...")
                                 price, info = get_realtime_price_force(ticker_clean)
                                 
-                                # Nếu vẫn không có, mới fallback sang closing price
+                                # Nếu vẫn không có, thử web scraping
                                 if price in ['N/A', 'Lỗi', '', None] or '2025-08-26' in str(info):
-                                    print(f"  - {ticker_clean}: ⚠️ Fallback sang closing price...")
-                                    price, info = get_closing_price(ticker_clean)
+                                    print(f"  - {ticker_clean}: 🌐 Thử web scraping...")
+                                    price, info = get_realtime_price_webscrape(ticker_clean)
+                                    
+                                    # Nếu vẫn không có, mới fallback sang closing price
+                                    if price in ['N/A', 'Lỗi', '', None] or '2025-08-26' in str(info):
+                                        print(f"  - {ticker_clean}: ⚠️ Fallback sang closing price...")
+                                        price, info = get_closing_price(ticker_clean)
                     else:
                         # Thị trường đã đóng: lấy giá đóng cửa gần nhất
                         price, info = get_closing_price(ticker_clean)
