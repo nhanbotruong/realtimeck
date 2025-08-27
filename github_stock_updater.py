@@ -348,6 +348,153 @@ def get_realtime_price(ticker_clean):
     except Exception as e:
         return "Lỗi", f"Lỗi realtime: {e}"
 
+def get_realtime_price_alternative(ticker_clean):
+    """Lấy giá realtime bằng các method khác khi method chính thất bại"""
+    import time
+    
+    try:
+        # Kiểm tra kết nối mạng trước
+        if not check_network_connection():
+            return "Lỗi", "Không có kết nối mạng"
+        
+        # Thêm delay để tránh bị block
+        time.sleep(0.15)  # Tăng delay cho method thay thế
+        
+        # Method 1: Thử sử dụng Quote API trực tiếp
+        try:
+            quote_data = safe_vnstock_call(vnstock.Quote, symbol=ticker_clean)
+            
+            if quote_data is None:
+                raise TimeoutError("Quote API call timeout")
+                
+            quote_dict = vars(quote_data)
+            
+            # Tìm giá trong quote_dict
+            for key in ['lastPrice', 'close', 'price', 'currentPrice', 'last_price']:
+                if key in quote_dict and quote_dict[key] is not None:
+                    price = quote_dict[key]
+                    if isinstance(price, (np.integer, np.floating)):
+                        price = float(price)
+                    return price, f"realtime_alt1 ({key})"
+        except Exception as e:
+            pass
+        
+        # Method 2: Thử sử dụng stock_intraday_data với page_size nhỏ
+        try:
+            historical_data = safe_vnstock_call(vnstock.stock_intraday_data, symbol=ticker_clean, page_size=1)
+            
+            if historical_data is not None and len(historical_data) > 0:
+                latest_data = historical_data.iloc[-1]
+                price = latest_data.get('close', latest_data.get('lastPrice', 'N/A'))
+                trading_date = latest_data.get('time', 'N/A')
+                
+                if isinstance(price, (np.integer, np.floating)):
+                    price = float(price)
+                
+                # Kiểm tra xem có phải dữ liệu hôm nay không
+                vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
+                now_vn = datetime.now(vn_tz)
+                today = now_vn.strftime('%Y-%m-%d')
+                
+                if str(trading_date).startswith(today):
+                    return price, f"realtime_alt2 (today intraday)"
+                else:
+                    return price, f"realtime_alt2 (latest intraday)"
+        except Exception as e:
+            pass
+        
+        # Method 3: Thử sử dụng Vnstock class với timeout dài hơn
+        try:
+            vs = vnstock.Vnstock()
+            stock_data = safe_vnstock_call(vs.stock, symbol=ticker_clean)
+            
+            if stock_data is None:
+                raise TimeoutError("Vnstock API call timeout")
+            
+            # Truy cập trực tiếp vào quote
+            if hasattr(stock_data, 'quote') and stock_data.quote:
+                quote_dict = vars(stock_data.quote)
+                
+                for key in ['lastPrice', 'close', 'price', 'currentPrice', 'last_price']:
+                    if key in quote_dict and quote_dict[key] is not None:
+                        price = quote_dict[key]
+                        if isinstance(price, (np.integer, np.floating)):
+                            price = float(price)
+                        return price, f"realtime_alt3 ({key})"
+        except Exception as e:
+            pass
+        
+        return "N/A", "không có dữ liệu realtime từ các method thay thế"
+        
+    except Exception as e:
+        return "Lỗi", f"Lỗi realtime alternative: {e}"
+
+def get_realtime_price_force(ticker_clean):
+    """Lấy giá realtime bằng cách force lấy dữ liệu hôm nay"""
+    import time
+    
+    try:
+        # Kiểm tra kết nối mạng trước
+        if not check_network_connection():
+            return "Lỗi", "Không có kết nối mạng"
+        
+        # Thêm delay để tránh bị block
+        time.sleep(0.2)  # Tăng delay cho method force
+        
+        vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
+        now_vn = datetime.now(vn_tz)
+        today = now_vn.strftime('%Y-%m-%d')
+        
+        # Method 1: Thử lấy dữ liệu hôm nay từ stock_historical_data
+        try:
+            historical_data = safe_vnstock_call(vnstock.stock_historical_data, symbol=ticker_clean, start_date=today, end_date=today)
+            
+            if historical_data is not None and len(historical_data) > 0:
+                latest_data = historical_data.iloc[-1]
+                price = latest_data.get('close', latest_data.get('lastPrice', 'N/A'))
+                trading_date = latest_data.get('time', 'N/A')
+                
+                if isinstance(price, (np.integer, np.floating)):
+                    price = float(price)
+                
+                if str(trading_date).startswith(today):
+                    return price, f"realtime_force1 (today historical)"
+        except Exception as e:
+            pass
+        
+        # Method 2: Thử lấy dữ liệu từ 2 ngày gần nhất
+        try:
+            yesterday = (now_vn - timedelta(days=1)).strftime('%Y-%m-%d')
+            historical_data = safe_vnstock_call(vnstock.stock_historical_data, symbol=ticker_clean, start_date=yesterday, end_date=today)
+            
+            if historical_data is not None and len(historical_data) > 0:
+                # Tìm dữ liệu hôm nay trước
+                today_data = None
+                for _, row in historical_data.iterrows():
+                    if str(row.get('time', '')).startswith(today):
+                        today_data = row
+                        break
+                
+                if today_data is not None:
+                    price = today_data.get('close', today_data.get('lastPrice', 'N/A'))
+                    if isinstance(price, (np.integer, np.floating)):
+                        price = float(price)
+                    return price, f"realtime_force2 (today found)"
+                else:
+                    # Lấy dữ liệu gần nhất
+                    latest_data = historical_data.iloc[-1]
+                    price = latest_data.get('close', latest_data.get('lastPrice', 'N/A'))
+                    if isinstance(price, (np.integer, np.floating)):
+                        price = float(price)
+                    return price, f"realtime_force2 (latest available)"
+        except Exception as e:
+            pass
+        
+        return "N/A", "không có dữ liệu realtime force"
+        
+    except Exception as e:
+        return "Lỗi", f"Lỗi realtime force: {e}"
+
 # ====== 3. LẤY GIÁ ĐÓNG CỬA ======
 def get_closing_price(ticker_clean):
     """Lấy giá đóng cửa gần nhất của mã cổ phiếu"""
@@ -605,11 +752,24 @@ def update_stock_prices(worksheet):
                 try:
                     # Kiểm tra thị trường có đang mở không
                     if is_market_open():
-                        # Thị trường đang mở: lấy lastPrice (realtime)
+                        # Thị trường đang mở: ưu tiên realtime, thử nhiều method
                         price, info = get_realtime_price(ticker_clean)
-                        if price in ['N/A', 'Lỗi', '', None]:
-                            # Fallback: lấy giá đóng cửa nếu realtime không có
-                            price, info = get_closing_price(ticker_clean)
+                        
+                        # Nếu realtime không có dữ liệu hôm nay, thử các method khác
+                        if price in ['N/A', 'Lỗi', '', None] or '2025-08-26' in str(info):
+                            print(f"  - {ticker_clean}: 🔄 Thử method realtime khác...")
+                            # Thử method realtime khác
+                            price, info = get_realtime_price_alternative(ticker_clean)
+                            
+                            # Nếu vẫn không có, thử method force
+                            if price in ['N/A', 'Lỗi', '', None] or '2025-08-26' in str(info):
+                                print(f"  - {ticker_clean}: 🔥 Thử method force...")
+                                price, info = get_realtime_price_force(ticker_clean)
+                                
+                                # Nếu vẫn không có, mới fallback sang closing price
+                                if price in ['N/A', 'Lỗi', '', None] or '2025-08-26' in str(info):
+                                    print(f"  - {ticker_clean}: ⚠️ Fallback sang closing price...")
+                                    price, info = get_closing_price(ticker_clean)
                     else:
                         # Thị trường đã đóng: lấy giá đóng cửa gần nhất
                         price, info = get_closing_price(ticker_clean)
