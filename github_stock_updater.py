@@ -33,8 +33,8 @@ _restart_count = 0
 _max_restarts = float('inf')  # Vô hạn restart - chỉ dừng khi cancel thủ công
 
 # Cấu hình timeout cho API calls
-API_TIMEOUT = 5  # Tăng lên 5 giây để tránh timeout quá sớm
-MAX_RETRIES = 2   # Tăng lên 2 lần retry
+API_TIMEOUT = 8  # Tăng lên 8 giây cho GitHub Actions
+MAX_RETRIES = 3   # Tăng lên 3 lần retry cho GitHub Actions
 
 def setup_requests_session():
     """Thiết lập session với retry strategy"""
@@ -152,6 +152,10 @@ def is_market_open():
     vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
     now = datetime.now(vn_tz)
     
+    # Debug timezone cho GitHub Actions
+    utc_now = datetime.now(pytz.UTC)
+    print(f"🌍 Timezone Debug: UTC={utc_now.strftime('%H:%M:%S %d/%m/%Y')}, VN={now.strftime('%H:%M:%S %d/%m/%Y')}")
+    
     # Thời gian mở cửa: 9:00 - 15:00 (giờ Việt Nam)
     market_open = time(9, 0)
     market_close = time(15, 0)
@@ -161,6 +165,9 @@ def is_market_open():
     
     # Kiểm tra thời gian
     is_time_ok = market_open <= now.time() <= market_close
+    
+    market_status = "MỞ" if (is_weekday and is_time_ok) else "ĐÓNG"
+    print(f"📊 Thị trường: {market_status} (Weekday: {is_weekday}, Time: {is_time_ok})")
     
     return is_weekday and is_time_ok
 
@@ -175,7 +182,7 @@ def get_realtime_price(ticker_clean):
             return "Lỗi", "Không có kết nối mạng"
         
         # Thêm delay để tránh bị block
-        time.sleep(0.05)  # Giảm xuống 0.05 giây để tăng tốc
+        time.sleep(0.1)  # Tăng delay cho GitHub Actions để tránh rate limit
         
         # Sử dụng stock method với timeout
         try:
@@ -201,8 +208,10 @@ def get_realtime_price(ticker_clean):
             except Exception as quote_error:
                 # Fallback cuối cùng: sử dụng historical data
                 from datetime import datetime, timedelta
-                start_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
-                end_date = datetime.now().strftime('%Y-%m-%d')
+                vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
+                now_vn = datetime.now(vn_tz)
+                start_date = (now_vn - timedelta(days=7)).strftime('%Y-%m-%d')
+                end_date = now_vn.strftime('%Y-%m-%d')
                 
                 try:
                     # Sử dụng API mới của vnstock
@@ -260,7 +269,9 @@ def get_realtime_price(ticker_clean):
             if hasattr(stock_data.quote, 'data_source') and stock_data.quote.data_source is not None:
                 # Lấy dữ liệu gần nhất (có thể là realtime)
                 from datetime import datetime, timedelta
-                start_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+                vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
+                now_vn = datetime.now(vn_tz)
+                start_date = (now_vn - timedelta(days=1)).strftime('%Y-%m-%d')
                 historical_data = stock_data.quote.data_source.history(start_date)
                 
                 if historical_data is not None and len(historical_data) > 0:
@@ -268,7 +279,7 @@ def get_realtime_price(ticker_clean):
                     
                     # Kiểm tra xem dữ liệu có phải là hôm nay không
                     trading_date = latest_data.get('time', '')
-                    today = datetime.now().strftime('%Y-%m-%d')
+                    today = now_vn.strftime('%Y-%m-%d')
                     
                     # Kiểm tra thời gian hiện tại để xác định loại dữ liệu
                     vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
@@ -348,7 +359,7 @@ def get_closing_price(ticker_clean):
             return "Lỗi", "Không có kết nối mạng"
         
         # Thêm delay để tránh bị block
-        time.sleep(0.02)  # Giảm xuống 0.02 giây để tăng tốc
+        time.sleep(0.08)  # Tăng delay cho GitHub Actions để tránh rate limit
         
         # Thử nhiều phương pháp khác nhau để lấy dữ liệu
         methods = [
@@ -386,7 +397,9 @@ def _get_price_method1(ticker_clean):
         
         # Lấy dữ liệu 7 ngày gần nhất
         from datetime import datetime, timedelta
-        start_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+        vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
+        now_vn = datetime.now(vn_tz)
+        start_date = (now_vn - timedelta(days=7)).strftime('%Y-%m-%d')
         historical_data = stock_data.quote.data_source.history(start_date)
         
         if historical_data is not None and len(historical_data) > 0:
@@ -420,8 +433,10 @@ def _get_price_method2(ticker_clean):
     """Method 2: Sử dụng stock_historical_data trực tiếp"""
     try:
         from datetime import datetime, timedelta
-        start_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
-        end_date = datetime.now().strftime('%Y-%m-%d')
+        vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
+        now_vn = datetime.now(vn_tz)
+        start_date = (now_vn - timedelta(days=7)).strftime('%Y-%m-%d')
+        end_date = now_vn.strftime('%Y-%m-%d')
         
         historical_data = safe_vnstock_call(vnstock.stock_historical_data, symbol=ticker_clean, start_date=start_date, end_date=end_date)
         
